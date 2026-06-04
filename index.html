@@ -1,0 +1,2234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Builder — Lightchain Node Setup Wizard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #080c18;
+    --bg2: #0f1526;
+    --bg3: #1a2238;
+    --card: #131929;
+    --border: #1e2d4a;
+    --cyan: #00d4ff;
+    --cyan2: #0099cc;
+    --green: #00e676;
+    --orange: #ff9800;
+    --red: #ff5252;
+    --text: #e8eaf0;
+    --muted: #7a8499;
+    --code-bg: #0a0f1e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 12px; height: 60px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; color: var(--cyan); }
+  .logo-icon { height: 32px; width: auto; vertical-align: middle; }
+  .logo span { color: var(--text); }
+  .header-sub { color: var(--muted); font-size: 13px; margin-left: 4px; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+  .updated-badge { background: var(--bg3); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 12px; color: var(--muted); }
+  .updated-badge span { color: var(--green); }
+
+  /* LAYOUT */
+  .layout { display: flex; padding-top: 60px; min-height: 100vh; width: 100%; }
+
+  /* SIDEBAR */
+  .sidebar { width: 280px; background: var(--bg2); border-right: 1px solid var(--border); position: fixed; top: 60px; bottom: 0; overflow-y: auto; padding: 20px 0; }
+  .sidebar-section { padding: 10px 20px 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .sidebar-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px 11px 22px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; font-size: 15px; color: var(--muted); }
+  .sidebar-item:hover { background: var(--bg3); color: var(--text); }
+  .sidebar-item.active { background: rgba(0,212,255,0.08); border-left-color: var(--cyan); color: var(--cyan); }
+  .sidebar-item.done { color: var(--green); }
+  .sidebar-item.done .step-num { background: var(--green); color: #000; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; transition: all 0.2s; }
+  .sidebar-item.active .step-num { background: var(--cyan); color: #000; border-color: var(--cyan); }
+
+  /* MAIN CONTENT */
+  .main { margin-left: 280px; flex: 1; padding: 32px 48px 80px; min-width: 0; overflow-x: hidden; }
+
+  /* PROGRESS */
+  .progress-bar { background: var(--bg3); height: 4px; border-radius: 2px; margin-bottom: 32px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan2), var(--cyan)); border-radius: 2px; transition: width 0.4s ease; }
+
+  /* STEP */
+  .step { display: none; }
+  .step.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .step-header { margin-bottom: 28px; }
+  .step-phase { font-size: 12px; color: var(--cyan); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .step-title { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 12px; }
+  .step-desc { font-size: 15px; color: var(--muted); line-height: 1.7; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+
+  /* CALLOUTS */
+  .callout { border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { font-size: 14px; line-height: 1.6; }
+  .callout-body strong { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 700; }
+  .callout.warn { background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3); }
+  .callout.warn .callout-body strong { color: var(--orange); }
+  .callout.danger { background: rgba(255,82,82,0.1); border: 1px solid rgba(255,82,82,0.3); }
+  .callout.danger .callout-body strong { color: var(--red); }
+  .callout.tip { background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.25); }
+  .callout.tip .callout-body strong { color: var(--cyan); }
+  .callout.success { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.25); }
+  .callout.success .callout-body strong { color: var(--green); }
+
+  /* CODE BLOCKS */
+  .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .code-header { background: var(--bg3); padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+  .code-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .copy-btn { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: var(--cyan); padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .copy-btn:hover { background: rgba(0,212,255,0.2); }
+  .copy-btn.copied { background: rgba(0,230,118,0.15); border-color: rgba(0,230,118,0.4); color: var(--green); }
+  .code-content { padding: 16px; overflow-x: auto; }
+  .code-content pre { font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px; line-height: 1.7; color: #c8d4f0; white-space: pre; }
+  .code-content .cmd { color: #7dd3fc; }
+  .code-content .flag { color: #a78bfa; }
+  .code-content .val { color: #86efac; }
+  .code-content .comment { color: #4a6080; }
+
+  /* SPEC TABLE */
+  .spec-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .spec-table th { text-align: left; padding: 10px 14px; background: var(--bg3); color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  .spec-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .spec-table tr:last-child td { border-bottom: none; }
+  .spec-table .label { color: var(--muted); font-size: 13px; }
+  .spec-table .min { color: var(--text); }
+  .spec-table .rec { color: var(--cyan); font-weight: 600; }
+  .keiko-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2); padding: 2px 8px; border-radius: 20px; font-size: 11px; color: var(--cyan); margin-left: 8px; }
+
+  /* CHECKLIST */
+  .checklist { list-style: none; }
+  .checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .checklist li:last-child { border-bottom: none; }
+  .check-box { width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; margin-top: 1px; }
+  .check-box.checked { background: var(--green); border-color: var(--green); color: #000; font-size: 13px; }
+  .check-text { line-height: 1.5; }
+  .check-text small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  /* LINKS GRID */
+  .links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .link-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-decoration: none; transition: all 0.2s; display: block; }
+  .link-card:hover { border-color: var(--cyan); background: rgba(0,212,255,0.05); }
+  .link-card-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .link-card-title { font-size: 14px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+  .link-card-url { font-size: 11px; color: var(--cyan); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* HEALTH CHECK */
+  .health-grid { display: grid; gap: 12px; }
+  .health-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .health-num { font-size: 11px; color: var(--cyan); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .health-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .health-normal { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .health-normal strong { color: var(--green); }
+
+  /* NAV BUTTONS */
+  .step-nav { display: flex; gap: 12px; margin-top: 32px; align-items: center; }
+  .btn { padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-family: inherit; }
+  .btn-primary { background: var(--cyan); color: #000; }
+  .btn-primary:hover { background: #00b8e0; }
+  .btn-ghost { background: var(--bg3); border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-danger { background: rgba(255,82,82,0.15); border: 1px solid rgba(255,82,82,0.3); color: var(--red); }
+  .step-counter { margin-left: auto; color: var(--muted); font-size: 13px; }
+
+  /* AI CHAT */
+  .ai-fab { position: fixed; bottom: 28px; right: 28px; height: 52px; padding: 0 20px 0 10px; border-radius: 30px; background: linear-gradient(135deg, var(--cyan2), var(--cyan)); border: none; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 24px rgba(0,212,255,0.5); transition: all 0.2s; z-index: 200; font-family: inherit; }
+  .ai-fab:hover { transform: scale(1.05); box-shadow: 0 6px 32px rgba(0,212,255,0.65); }
+  .ai-fab-text { font-size: 15px; font-weight: 800; color: #000; letter-spacing: 0.3px; }
+  .ai-panel { position: fixed; bottom: 96px; right: 28px; width: 440px; max-height: calc(100vh - 140px); background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); z-index: 200; display: none; flex-direction: column; overflow: hidden; }
+  .ai-resize-handle { width: 28px; height: 28px; cursor: nw-resize; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: rgba(0,212,255,0.7); font-size: 16px; transition: color 0.15s, background 0.15s; }
+  .ai-resize-handle:hover { color: var(--cyan); background: rgba(0,212,255,0.1); }
+  .ai-panel.open { display: flex; }
+  .ai-panel-header { background: var(--bg3); padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; cursor: move; user-select: none; }
+  .ai-panel-title { font-weight: 700; font-size: 14px; }
+  .ai-panel-sub { font-size: 12px; color: var(--muted); }
+  .ai-panel-close { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 4px; }
+  .ai-messages { padding: 16px; flex: 1; min-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; overscroll-behavior: contain; }
+  .ai-msg { padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; max-width: 90%; }
+  .ai-msg.bot { background: var(--bg3); border: 1px solid var(--border); align-self: flex-start; }
+  .ai-msg.user { background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.2); align-self: flex-end; color: var(--cyan); }
+  .ai-input-row { padding: 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  .ai-input { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+  .ai-input:focus { border-color: var(--cyan); }
+  .ai-send { background: var(--cyan); border: none; color: #000; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: inherit; }
+  .ai-coming-soon { color: var(--muted); font-size: 12px; text-align: center; padding: 4px 0; }
+
+  /* WELCOME */
+  .welcome-hero { text-align: center; padding: 20px 0 40px; width: 100%; }
+  .welcome-orca { font-size: 64px; margin-bottom: 16px; }
+  .welcome-title { font-size: 36px; font-weight: 800; background: linear-gradient(135deg, var(--cyan), #ffffff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 12px; }
+  .welcome-sub { font-size: 17px; color: var(--muted); max-width: 600px; margin: 0 auto 32px; line-height: 1.6; }
+  .gate-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 640px; margin: 0 auto; }
+  .gate-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .gate-card:hover { border-color: var(--cyan); }
+  .gate-card-icon { font-size: 32px; margin-bottom: 8px; }
+  .gate-card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .gate-card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* TIPS */
+  .tips-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .tip-pill { background: rgba(0,212,255,0.07); border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; padding: 12px 14px; font-size: 13px; display: flex; gap: 10px; align-items: flex-start; }
+  .tip-pill-icon { font-size: 20px; flex-shrink: 0; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 800px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 20px; }
+    .gate-cards { grid-template-columns: 1fr; }
+    .tips-row { grid-template-columns: 1fr; }
+    .ai-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; resize: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">Node<span> Builder</span></div>
+  <div class="header-sub">Lightchain Worker Node Wizard</div>
+  <div class="header-right">
+    <div class="updated-badge">Last updated: <span>May 25, 2026</span></div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Setup</div>
+    <div class="sidebar-item active" onclick="goTo(0)" id="nav-0"><div class="step-num">★</div>Welcome</div>
+    <div class="sidebar-item" onclick="goTo(1)" id="nav-1"><div class="step-num">1</div>Hardware</div>
+    <div class="sidebar-item" onclick="goTo(2)" id="nav-2"><div class="step-num">2</div>Operating System</div>
+    <div class="sidebar-item" onclick="goTo(3)" id="nav-3"><div class="step-num">3</div>Prerequisites</div>
+    <div class="sidebar-item" onclick="goTo(4)" id="nav-4"><div class="step-num">4</div>Generate Worker Key</div>
+    <div class="sidebar-item" onclick="goTo(5)" id="nav-5"><div class="step-num">5</div>Resolve Contracts</div>
+    <div class="sidebar-item" onclick="goTo(6)" id="nav-6"><div class="step-num">6</div>Ollama & Models</div>
+    <div class="sidebar-item" onclick="goTo(7)" id="nav-7"><div class="step-num">7</div>Pull Docker Image</div>
+    <div class="sidebar-item" onclick="goTo(8)" id="nav-8"><div class="step-num">8</div>Import Key & ECDH</div>
+    <div class="sidebar-item" onclick="goTo(9)" id="nav-9"><div class="step-num">9</div>Fund Worker Wallet</div>
+    <div class="sidebar-item" onclick="goTo(10)" id="nav-10"><div class="step-num">10</div>Register On-Chain</div>
+    <div class="sidebar-item" onclick="goTo(11)" id="nav-11"><div class="step-num">11</div>Run the Worker</div>
+    <div class="sidebar-section">Ongoing</div>
+    <div class="sidebar-item" onclick="goTo(12)" id="nav-12"><div class="step-num">✓</div>Health Checks</div>
+    <div class="sidebar-item" onclick="goTo(13)" id="nav-13"><div class="step-num">🔗</div>Resources</div>
+    <div style="border-top:1px solid var(--border);margin:8px 0"></div>
+    <div class="sidebar-item" onclick="goTo(14)" id="nav-14"><div class="step-num">❓</div>Beginner's FAQ</div>
+    <div class="sidebar-item" onclick="goTo(15)" id="nav-15"><div class="step-num">🔧</div>Troubleshoot</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+
+    <!-- STEP 0: WELCOME -->
+    <div class="step active" id="step-0">
+      <div class="welcome-hero">
+        <img src="orca-hero.png" style="height:160px;margin-bottom:16px;filter:drop-shadow(0 8px 24px rgba(0,212,255,0.3));mix-blend-mode:luminosity;border-radius:16px" alt="Node Builder">
+        <div class="welcome-title">Node in a Day</div>
+        <div class="welcome-sub">The only Lightchain worker node guide built by a real node operator — every command tested, every gotcha documented.</div>
+      </div>
+
+      <!-- LIVE NETWORK STATS BAR -->
+      <div id="networkStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.2);border-radius:12px;overflow:hidden;margin-bottom:20px">
+        <div class="stat-cell" style="background:rgba(10,20,35,0.9);padding:14px 16px;text-align:center">
+          <div id="statWorkers" style="font-size:22px;font-weight:800;color:var(--cyan)">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Registered Workers</div>
+        </div>
+        <div class="stat-cell" style="background:rgba(10,20,35,0.9);padding:14px 16px;text-align:center">
+          <div id="statActive" style="font-size:22px;font-weight:800;color:var(--green)">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Active Nodes</div>
+        </div>
+        <div class="stat-cell" style="background:rgba(10,20,35,0.9);padding:14px 16px;text-align:center">
+          <div id="statJobs" style="font-size:22px;font-weight:800;color:#fff">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Jobs Completed</div>
+        </div>
+        <div class="stat-cell" style="background:rgba(10,20,35,0.9);padding:14px 16px;text-align:center">
+          <div id="statEarned" style="font-size:22px;font-weight:800;color:#ffd700">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">LCAI Paid to Workers</div>
+        </div>
+      </div>
+
+      <!-- REWARD ESTIMATOR -->
+      <div id="rewardEstimator" style="display:none;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:16px 20px;margin-bottom:20px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--cyan)">💰 What could you earn?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Per job</div>
+            <div style="font-size:20px;font-weight:800;color:#fff">~0.016 <span style="font-size:12px;color:var(--muted)">LCAI</span></div>
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Avg per active node</div>
+            <div id="rewardAvg" style="font-size:20px;font-weight:800;color:var(--green)">—</div>
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px 14px;text-align:center">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Network jobs total</div>
+            <div id="rewardJobs" style="font-size:20px;font-weight:800;color:#fff">—</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">Live from Lightchain mainnet subgraph · earnings grow as network AI usage increases · early operators get a larger share of current volume</div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body"><strong>What this wizard does</strong>Every command is copy-paste ready. Every common mistake is called out before you hit it. An AI assistant answers your questions in plain English. Built from real experience running a node on Lightchain mainnet.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Before you start — two questions</div>
+        <div class="checklist">
+          <li>
+            <div class="check-box" onclick="toggleCheck(this)"></div>
+            <div class="check-text">
+              I have 50,001+ LCAI ready to stake (50,000 for stake + ~1 for gas)
+              <small>Don't have LCAI yet? Buy on a DEX or centralized exchange, then bridge to Lightchain Mainnet at <a href="https://bridge.lightchain.ai" target="_blank" style="color:var(--cyan)">bridge.lightchain.ai</a></small>
+            </div>
+          </li>
+          <li>
+            <div class="check-box" onclick="toggleCheck(this)"></div>
+            <div class="check-text">
+              I have a machine that can run 24/7 with at least 8GB GPU VRAM (see Step 1 for full specs)
+              <small>Laptops can work but desktops are better — they don't sleep, overheat, or throttle as easily</small>
+            </div>
+          </li>
+        </div>
+      </div>
+
+      <div class="tips-row">
+        <div class="tip-pill"><div class="tip-pill-icon">🔋</div><div><strong style="display:block;margin-bottom:4px">Get a UPS</strong>A power outage mid-job can trigger a slash penalty. An Uninterruptible Power Supply ($60-$150) protects your 50,000 LCAI stake from a simple power hiccup.</div></div>
+        <div class="tip-pill"><div class="tip-pill-icon">📱</div><div><strong style="display:block;margin-bottom:4px">Have a phone hotspot ready</strong>If your home internet goes down, your node goes offline. A phone hotspot keeps it connected during short outages — the node's data usage is low enough to handle it.</div></div>
+      </div>
+
+      <div class="card" style="border-color:rgba(0,212,255,0.3);background:rgba(0,212,255,0.04)">
+        <div class="card-title">⬇️ Grab your Starter Kit before you begin</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:16px">The kit gives you 3 pre-filled files to work from as you go through this wizard. All the mainnet settings are already filled in — you only need to add <strong style="color:#fff">3 personal values</strong> that you'll generate during setup.</p>
+
+        <div style="display:grid;gap:10px;margin-bottom:18px">
+          <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px">
+            <span style="font-size:20px">📄</span>
+            <div>
+              <div style="font-weight:700;color:var(--cyan);margin-bottom:3px">.env — Your node configuration</div>
+              <div style="font-size:13px;color:var(--muted)">Pre-filled with all mainnet addresses, RPC URLs, and settings. Open it in a text editor and fill in the 3 blanks as you reach each step:</div>
+              <ul style="font-size:12px;color:#aaa;margin:6px 0 0 16px;line-height:1.8">
+                <li><code style="color:var(--cyan)">PRIVATE_KEY</code> — your worker wallet private key (Step 4)</li>
+                <li><code style="color:var(--cyan)">ECDH_PRIVATE_KEY</code> — encryption key you generate (Step 8)</li>
+                <li><code style="color:var(--cyan)">WORKER_ADDRESS</code> — your worker wallet address (Step 4)</li>
+              </ul>
+            </div>
+          </div>
+          <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px">
+            <span style="font-size:20px">🚀</span>
+            <div>
+              <div style="font-weight:700;color:var(--cyan);margin-bottom:3px">run-worker.sh — One-command node launcher</div>
+              <div style="font-size:13px;color:var(--muted)">Once your .env is filled in, run this script to start your node. It handles the full docker run command with all the right flags — no manual typing.</div>
+            </div>
+          </div>
+          <div style="background:rgba(0,0,0,0.25);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px">
+            <span style="font-size:20px">✅</span>
+            <div>
+              <div style="font-weight:700;color:var(--cyan);margin-bottom:3px">setup-check.sh — Prerequisites checker</div>
+              <div style="font-size:13px;color:var(--muted)">Run this before Step 5 to verify Docker, NVIDIA toolkit, Ollama, Redis, and Foundry are all installed correctly. Catches problems before they stop you mid-setup.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,200,0,0.07);border:1px solid rgba(255,200,0,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#ddc">
+          💡 <strong>How to use it:</strong> Download the zip now, unzip it into your home folder (<code style="color:var(--cyan)">~/</code>), and open <code style="color:var(--cyan)">.env</code> in a text editor. Keep it open alongside this wizard — you'll paste in each key as you generate it. When all 3 are filled in, run <code style="color:var(--cyan)">bash run-worker.sh</code> instead of the long docker command in Step 10.
+        </div>
+
+        <button onclick="downloadTemplateKit()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:12px 28px;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+          ⬇️ Download Starter Kit
+        </button>
+        <div style="color:var(--muted);font-size:12px;margin-top:8px">3 files in a .zip — everything generates in your browser, nothing is sent to any server.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-primary" onclick="next()">Start Setup →</button>
+        <span class="step-counter">Step 0 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 1: HARDWARE -->
+    <div class="step" id="step-1">
+      <div class="step-header">
+        <div class="step-phase">Step 1</div>
+        <div class="step-title">Hardware Requirements</div>
+        <div class="step-desc">Your machine needs enough GPU power to run AI inference jobs. The minimum is 8GB VRAM — enough for llama3-8b, which is the primary model the network uses.</div>
+      </div>
+
+      <div class="card">
+        <table class="spec-table">
+          <tr><th>Component</th><th>Minimum</th><th>Recommended</th></tr>
+          <tr><td class="label">CPU</td><td class="min">4 cores (x86_64)</td><td class="rec">16+ cores (AMD/Intel)</td></tr>
+          <tr><td class="label">RAM</td><td class="min">16 GB DDR4</td><td class="rec">32–64 GB DDR5 <span class="keiko-badge">🐋 Keiko runs 32GB</span></td></tr>
+          <tr><td class="label">Storage</td><td class="min">512 GB NVMe SSD</td><td class="rec">2 TB NVMe Gen4</td></tr>
+          <tr><td class="label">GPU VRAM</td><td class="min">8 GB (llama3-8b)</td><td class="rec">12–24 GB <span class="keiko-badge">🐋 RTX 5070 12GB</span></td></tr>
+          <tr><td class="label">Internet</td><td class="min">100 Mbps up/down</td><td class="rec">1 Gbps symmetric</td></tr>
+          <tr><td class="label">OS</td><td class="min">Ubuntu 22.04+</td><td class="rec">Ubuntu 22.04 or 26.04</td></tr>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body"><strong>Laptops — proceed with caution</strong>Laptops sleep, throttle under sustained load, and overheat. If you use one, disable sleep mode and make sure it stays plugged in 24/7. A desktop is strongly preferred for a node meant to run continuously.</div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body"><strong>VRAM is the key number</strong>The GPU VRAM determines which models you can run. 8GB handles llama3-8b. 24GB+ opens up larger models when they get whitelisted. The top node on the network currently runs llama3-70b — that requires 48GB+ VRAM or a GPU+CPU split (which is very slow).</div>
+      </div>
+
+      <!-- HARDWARE CHECKER -->
+      <div class="card" style="border-color:rgba(0,212,255,0.25)">
+        <div class="card-title">⚡ Check Your Hardware Now</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Already on Ubuntu with NVIDIA drivers installed? Click below to automatically check if your machine meets the requirements — no copy-paste needed.</p>
+        <button id="hwCheckBtn" onclick="runHardwareCheck()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:10px 22px;font-weight:700;font-size:14px;cursor:pointer">
+          ⚡ Check My Hardware
+        </button>
+        <div style="color:var(--muted);font-size:12px;margin-top:8px">Requires the Node Builder server running at localhost:8185. Checks GPU VRAM, RAM, CPU cores, and disk space.</div>
+        <div id="hwCheckResults" style="display:none;margin-top:16px">
+          <div id="hwCheckSummary" style="font-weight:700;font-size:14px;margin-bottom:12px"></div>
+          <div id="hwCheckList" style="display:grid;gap:8px"></div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: OS Setup →</button>
+        <span class="step-counter">Step 1 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 2: OS -->
+    <div class="step" id="step-2">
+      <div class="step-header">
+        <div class="step-phase">Step 2</div>
+        <div class="step-title">Operating System</div>
+        <div class="step-desc">Lightchain worker nodes are designed and tested on Ubuntu Linux. Ubuntu 22.04 LTS or newer is recommended.</div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">🐧</div>
+        <div class="callout-body"><strong>Ubuntu is the tested environment</strong>The official Docker image and all commands in this guide assume Ubuntu. Windows and macOS may work but are unsupported. If you're on Windows, you can run Ubuntu via WSL2 or dual-boot.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Download Ubuntu</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">Download the LTS version — it's the most stable and gets long-term security updates.</div>
+        <a href="https://ubuntu.com/download/desktop" target="_blank" class="link-card" style="display:inline-block;margin-bottom:12px">
+          <div class="link-card-label">Official Download</div>
+          <div class="link-card-title">Ubuntu Desktop Download</div>
+          <div class="link-card-url">ubuntu.com/download/desktop</div>
+        </a>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Verify your current OS version</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'lsb_release -a')">Copy</button></div>
+          <div class="code-content"><pre>lsb_release -a</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">You should see "Ubuntu 22.04" or higher in the output.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Prerequisites →</button>
+        <span class="step-counter">Step 2 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 3: PREREQUISITES -->
+    <div class="step" id="step-3">
+      <div class="step-header">
+        <div class="step-phase">Step 3</div>
+        <div class="step-title">Prerequisites</div>
+        <div class="step-desc">Install these four things before touching the worker image. Every step in this guide assumes they're in place.</div>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">🔐</div>
+        <div class="callout-body"><strong>Check your ISP first — Cox blocks Lightchain RPC</strong>Before setting up anything, verify your ISP doesn't block Lightchain. If you're on Cox or another blocking provider, you MUST run a VPN at all times or your node will appear offline to the network.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Test RPC connectivity</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, `curl -s -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' https://rpc.mainnet.lightchain.ai`)">Copy</button></div>
+          <div class="code-content"><pre>curl -s -X POST -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+  https://rpc.mainnet.lightchain.ai</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">If you see a block number in the response, you're fine. If it times out or errors — get a VPN before continuing. <strong style="color:var(--orange)">Mullvad VPN is recommended ($5/mo).</strong></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">1. Install NVIDIA Drivers + CUDA</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'sudo ubuntu-drivers autoinstall\nsudo reboot')">Copy</button></div>
+          <div class="code-content"><pre>sudo ubuntu-drivers autoinstall
+sudo reboot</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">After reboot, verify:</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">verify</span><button class="copy-btn" onclick="copyCode(this, 'nvidia-smi')">Copy</button></div>
+          <div class="code-content"><pre>nvidia-smi</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">You should see your GPU name, temperature, and VRAM.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">2. Install Docker</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'curl -fsSL https://get.docker.com | sh\nsudo usermod -aG docker $USER && newgrp docker')">Copy</button></div>
+          <div class="code-content"><pre>curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER && newgrp docker</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">Adding yourself to the docker group means you won't need sudo for docker commands.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">3. Install Foundry (cast tool)</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">Foundry gives you the <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;color:var(--cyan)">cast</code> command — used for generating keys, checking balances, and funding the worker wallet.</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'curl -L https://foundry.paradigm.xyz | bash\nfoundryup')">Copy</button></div>
+          <div class="code-content"><pre>curl -L https://foundry.paradigm.xyz | bash
+foundryup</pre></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">4. Install Redis</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">Redis is required by the worker. It must be running before the container starts.</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'sudo apt install redis-server -y\nsudo systemctl enable redis-server\nsudo systemctl start redis-server')">Copy</button></div>
+          <div class="code-content"><pre>sudo apt install redis-server -y
+sudo systemctl enable redis-server
+sudo systemctl start redis-server</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px">Verify: <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;color:var(--cyan)">sudo systemctl status redis-server</code> — should show "active (running)"</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Generate Key →</button>
+        <span class="step-counter">Step 3 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 4: GENERATE KEY -->
+    <div class="step" id="step-4">
+      <div class="step-header">
+        <div class="step-phase">Step 4</div>
+        <div class="step-title">Generate a Worker Key</div>
+        <div class="step-desc">Create a brand-new, dedicated wallet for your worker node. This is NOT your main wallet — it's a hot wallet that lives inside Docker.</div>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body"><strong>NEVER reuse your main wallet as the worker key</strong>The worker private key sits inside a Docker container alongside its password. Use a fresh key that holds only the working capital (stake + small gas buffer). Keep your main LCAI holdings in a separate wallet.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Generate a fresh worker key and export it</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'cast wallet new\n\n# Copy the output, then export both values:\nexport WORKER_ADDR=0x...      # Address from output\nexport WORKER_PRIVKEY=0x...   # Private key from output\n\n# Verify the key matches the address:\ncast wallet address --private-key \"$WORKER_PRIVKEY\"')">Copy</button></div>
+          <div class="code-content"><pre>cast wallet new
+
+# Copy the output, then export both values:
+export WORKER_ADDR=0x...      # Address from output
+export WORKER_PRIVKEY=0x...   # Private key from output
+
+# Verify the key matches the address:
+cast wallet address --private-key "$WORKER_PRIVKEY"</pre></div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">📋</div>
+        <div class="callout-body"><strong>Save these values somewhere safe</strong>Write down WORKER_ADDR and WORKER_PRIVKEY before continuing. If you lose the private key, you lose access to your staked LCAI. Store it offline — not in a cloud note or email.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Resolve Contracts →</button>
+        <span class="step-counter">Step 4 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 5: CONTRACTS -->
+    <div class="step" id="step-5">
+      <div class="step-header">
+        <div class="step-phase">Step 5</div>
+        <div class="step-title">Resolve Contract Addresses</div>
+        <div class="step-desc">Pull the AIConfig and JobRegistry addresses from the on-chain WorkerRegistry. These get used in every Docker command that follows.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Set RPC and resolve addresses</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, `export RPC_URL=https://rpc.mainnet.lightchain.ai\nexport WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002\nexport AI_CONFIG_ADDRESS=$(cast call $WORKER_REGISTRY_ADDRESS \"aiConfig()(address)\" --rpc-url $RPC_URL)\nexport JOB_REGISTRY_ADDRESS=$(cast call $WORKER_REGISTRY_ADDRESS \"jobRegistry()(address)\" --rpc-url $RPC_URL)\n\necho \"AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS\"\necho \"JOB_REGISTRY_ADDRESS=$JOB_REGISTRY_ADDRESS\"`)">Copy</button></div>
+          <div class="code-content"><pre>export RPC_URL=https://rpc.mainnet.lightchain.ai
+export WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002
+
+export AI_CONFIG_ADDRESS=$(cast call $WORKER_REGISTRY_ADDRESS \
+  "aiConfig()(address)" --rpc-url $RPC_URL)
+
+export JOB_REGISTRY_ADDRESS=$(cast call $WORKER_REGISTRY_ADDRESS \
+  "jobRegistry()(address)" --rpc-url $RPC_URL)
+
+echo "AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS"
+echo "JOB_REGISTRY_ADDRESS=$JOB_REGISTRY_ADDRESS"</pre></div>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body"><strong>Known mainnet addresses (for reference)</strong>AIConfig proxy: <code style="color:var(--cyan)">0x24D11533C354092ed6E18b964257819cE78Ce77D</code><br>JobRegistry proxy: <code style="color:var(--cyan)">0xfB15F90298e4CcD7106E76fFB5e520315cC42B0b</code><br>These can change after upgrades — always resolve live as shown above.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Ollama & Models →</button>
+        <span class="step-counter">Step 5 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 6: OLLAMA -->
+    <div class="step" id="step-6">
+      <div class="step-header">
+        <div class="step-phase">Step 6</div>
+        <div class="step-title">Install Ollama & Pull Models</div>
+        <div class="step-desc">Ollama runs on your machine (not inside Docker) and serves AI inference. The worker container calls Ollama to process jobs.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Install Ollama and pull llama3-8b</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'curl -fsSL https://ollama.com/install.sh | sh\nollama serve &\nollama pull llama3:8b\nollama cp llama3:8b llama3-8b')">Copy</button></div>
+          <div class="code-content"><pre>curl -fsSL https://ollama.com/install.sh | sh
+ollama serve &
+ollama pull llama3:8b
+ollama cp llama3:8b llama3-8b</pre></div>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body"><strong>The bare alias step is critical — don't skip it</strong>The last line (<code style="color:var(--red)">ollama cp llama3:8b llama3-8b</code>) creates an alias with a dash instead of a colon. The worker looks for <code style="color:var(--red)">llama3-8b</code> (dash) not <code style="color:var(--red)">llama3:8b</code> (colon). Without this alias, the worker can't serve jobs even though the model is downloaded.</div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚙️</div>
+        <div class="callout-body"><strong>SUPPORTED_MODELS uses a dash, not a colon</strong>When you see <code style="color:var(--orange)">SUPPORTED_MODELS=llama3-8b</code> in the Docker command — the dash is correct. Using a colon (<code style="color:var(--orange)">llama3:8b</code>) will silently break the model registration. This is one of the most common mistakes new operators make.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Optional: Add more models</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">These models are whitelisted on mainnet. More models = potentially more job types routed to your node.</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal — optional</span><button class="copy-btn" onclick="copyCode(this, 'ollama pull llama3.1:8b\nollama cp llama3.1:8b llama3.1-8b\n\nollama pull gemma2:9b\nollama cp gemma2:9b gemma2-9b')">Copy</button></div>
+          <div class="code-content"><pre>ollama pull llama3.1:8b
+ollama cp llama3.1:8b llama3.1-8b
+
+ollama pull gemma2:9b
+ollama cp gemma2:9b gemma2-9b</pre></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Verify Ollama is working</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">verify</span><button class="copy-btn" onclick="copyCode(this, \"curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool\")">Copy</button></div>
+          <div class="code-content"><pre>curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">You should see your models listed in the JSON response. If you get an error, make sure <code style="color:var(--cyan)">ollama serve</code> is running.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Pull Docker Image →</button>
+        <span class="step-counter">Step 6 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 7: DOCKER IMAGE -->
+    <div class="step" id="step-7">
+      <div class="step-header">
+        <div class="step-phase">Step 7</div>
+        <div class="step-title">Pull the Worker Docker Image</div>
+        <div class="step-desc">Download the official Lightchain worker image. This is the software that connects your machine to the network and processes inference jobs.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Pull the latest worker image</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'docker pull us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest')">Copy</button></div>
+          <div class="code-content"><pre>docker pull us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px">This takes a few minutes. Once done, your image is ready for the keystore and registration steps.</div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body"><strong>To update later</strong>Run the same pull command — Docker replaces the old image with the latest automatically. Check the Lightchain Discord for announcements about new worker versions.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Import Key →</button>
+        <span class="step-counter">Step 7 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 8: IMPORT KEY + ECDH -->
+    <div class="step" id="step-8">
+      <div class="step-header">
+        <div class="step-phase">Step 8</div>
+        <div class="step-title">Import Key & Generate ECDH</div>
+        <div class="step-desc">Encrypt your worker private key into a keystore the container can mount, then generate the ECDH encryption key used for on-chain job encryption.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Create keystore directory and import worker key</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">Replace <code style="color:var(--orange);background:var(--code-bg);padding:2px 6px;border-radius:4px">&lt;YOUR_PASSWORD&gt;</code> with a strong password you'll remember — you'll need it every time the container starts.</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'mkdir -p ~/lightchain-worker/keys\n\ndocker run --rm \\\n  -v ~/lightchain-worker/keys:/data \\\n  --entrypoint /bin/lightchain-worker \\\n  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \\\n  import-key \\\n  --private-key \"$WORKER_PRIVKEY\" \\\n  --password <YOUR_PASSWORD> \\\n  --output /data/eth-keystore')">Copy</button></div>
+          <div class="code-content"><pre>mkdir -p ~/lightchain-worker/keys
+
+docker run --rm \
+  -v ~/lightchain-worker/keys:/data \
+  --entrypoint /bin/lightchain-worker \
+  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \
+  import-key \
+  --private-key "$WORKER_PRIVKEY" \
+  --password &lt;YOUR_PASSWORD&gt; \
+  --output /data/eth-keystore</pre></div>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px">The printed address must match your <code style="color:var(--cyan)">$WORKER_ADDR</code>. If they differ, stop — wrong key was imported.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Generate ECDH encryption key</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, `docker run --rm \\\n  -v ~/lightchain-worker/keys:/data \\\n  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \\\n  -e WORKER_KEYSTORE_PASSWORD=<YOUR_PASSWORD> \\\n  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \\\n  -e RPC_URL=https://rpc.mainnet.lightchain.ai \\\n  -e CHAIN_ID=9200 \\\n  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \\\n  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \\\n  -e SUPPORTED_MODELS=llama3-8b \\\n  --entrypoint /bin/lightchain-worker \\\n  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \\\n  keygen`)">Copy</button></div>
+          <div class="code-content"><pre>docker run --rm \
+  -v ~/lightchain-worker/keys:/data \
+  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \
+  -e WORKER_KEYSTORE_PASSWORD=&lt;YOUR_PASSWORD&gt; \
+  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \
+  -e RPC_URL=https://rpc.mainnet.lightchain.ai \
+  -e CHAIN_ID=9200 \
+  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \
+  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \
+  -e SUPPORTED_MODELS=llama3-8b \
+  --entrypoint /bin/lightchain-worker \
+  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \
+  keygen</pre></div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Fund Wallet →</button>
+        <span class="step-counter">Step 8 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 9: FUND -->
+    <div class="step" id="step-9">
+      <div class="step-header">
+        <div class="step-phase">Step 9</div>
+        <div class="step-title">Fund the Worker Wallet</div>
+        <div class="step-desc">Send LCAI from your main wallet (funder) to the worker address. You need 50,000 for the stake plus a small buffer for gas.</div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body"><strong>Send 50,005 LCAI</strong>50,000 for the stake + ~5 for gas over the node's lifetime. The extra few LCAI gives a comfortable buffer for registration and job transactions.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Send LCAI from your funder wallet</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:12px">Replace <code style="color:var(--orange);background:var(--code-bg);padding:2px 6px;border-radius:4px">&lt;FUNDER_PRIVKEY&gt;</code> with your main wallet's private key.</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'export FUNDER_PRIVKEY=0x...\n\ncast send \"$WORKER_ADDR\" \\\n  --value 50005ether \\\n  --rpc-url \"$RPC_URL\" \\\n  --private-key \"$FUNDER_PRIVKEY\"\n\n# Verify the worker received the funds:\ncast balance \"$WORKER_ADDR\" --rpc-url \"$RPC_URL\" | awk \'{printf \"%.4f LCAI\\n\", $1/1e18}\'')">Copy</button></div>
+          <div class="code-content"><pre>export FUNDER_PRIVKEY=0x...
+
+cast send "$WORKER_ADDR" \
+  --value 50005ether \
+  --rpc-url "$RPC_URL" \
+  --private-key "$FUNDER_PRIVKEY"
+
+# Verify the worker received the funds:
+cast balance "$WORKER_ADDR" --rpc-url "$RPC_URL" \
+  | awk '{printf "%.4f LCAI\n", $1/1e18}'</pre></div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body"><strong>Rewards land in the worker wallet, not your main wallet</strong>Job earnings are credited to <code style="color:var(--orange)">$WORKER_ADDR</code>. They don't auto-forward anywhere. You'll need to manually sweep earnings to your main wallet periodically. Your stake (50,000 LCAI) stays locked until you deregister.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Register On-Chain →</button>
+        <span class="step-counter">Step 9 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 10: REGISTER -->
+    <div class="step" id="step-10">
+      <div class="step-header">
+        <div class="step-phase">Step 10</div>
+        <div class="step-title">Register On-Chain</div>
+        <div class="step-desc">Submit the registration transaction. This stakes your 50,000 LCAI, registers your ECDH public key, and adds your supported models to the network.</div>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body"><strong>Once registered, do NOT deregister to escape problems</strong>Deregistering triggers a ~7,500 LCAI slash penalty if you have pending jobs. If you run into issues after registering, troubleshoot first — do not deregister. Ask for help in Discord or use the AI assistant in this wizard.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Register the worker</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, `docker run --rm \\\n  -v ~/lightchain-worker/keys:/data \\\n  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \\\n  -e WORKER_KEYSTORE_PASSWORD=<YOUR_PASSWORD> \\\n  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \\\n  -e RPC_URL=https://rpc.mainnet.lightchain.ai \\\n  -e CHAIN_ID=9200 \\\n  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \\\n  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \\\n  -e SUPPORTED_MODELS=llama3-8b \\\n  --entrypoint /bin/lightchain-worker \\\n  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \\\n  register`)">Copy</button></div>
+          <div class="code-content"><pre>docker run --rm \
+  -v ~/lightchain-worker/keys:/data \
+  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \
+  -e WORKER_KEYSTORE_PASSWORD=&lt;YOUR_PASSWORD&gt; \
+  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \
+  -e RPC_URL=https://rpc.mainnet.lightchain.ai \
+  -e CHAIN_ID=9200 \
+  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \
+  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \
+  -e SUPPORTED_MODELS=llama3-8b \
+  --entrypoint /bin/lightchain-worker \
+  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest \
+  register</pre></div>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body"><strong>Verify your registration on the explorer</strong>After registering, check your node at:<br><a href="https://workers.lightchain.ai" target="_blank" style="color:var(--cyan)">workers.lightchain.ai</a> — search for your worker address. You should see it listed with status "Online" within a few minutes of starting the container in the next step.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Run the Worker →</button>
+        <span class="step-counter">Step 10 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 11: RUN -->
+    <div class="step" id="step-11">
+      <div class="step-header">
+        <div class="step-phase">Step 11</div>
+        <div class="step-title">Run the Worker</div>
+        <div class="step-desc">Start the long-running container. This connects your node to the worker gateway and begins receiving jobs.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Launch the worker container</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, `docker run -d \\\n  --restart always \\\n  --user root \\\n  --name lightchain-worker \\\n  --add-host=host.docker.internal:host-gateway \\\n  -v ~/lightchain-worker/keys:/data \\\n  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \\\n  -e WORKER_KEYSTORE_PASSWORD=<YOUR_PASSWORD> \\\n  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \\\n  -e RPC_URL=https://rpc.mainnet.lightchain.ai \\\n  -e CHAIN_ID=9200 \\\n  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \\\n  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \\\n  -e JOB_REGISTRY_ADDRESS=$JOB_REGISTRY_ADDRESS \\\n  -e SUPPORTED_MODELS=llama3-8b \\\n  -e OLLAMA_URL=http://host.docker.internal:11434 \\\n  -e BEACON_API_URL=https://beacon.mainnet.lightchain.ai \\\n  -e BLOB_MODE=beacon \\\n  -e SESSION_KEY_FILE=/data/session-keys.enc \\\n  -e WORKER_GATEWAY_URL=https://worker-gateway.mainnet.lightchain.ai \\\n  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest`)">Copy</button></div>
+          <div class="code-content"><pre>docker run -d \
+  --restart always \
+  --user root \
+  --name lightchain-worker \
+  --add-host=host.docker.internal:host-gateway \
+  -v ~/lightchain-worker/keys:/data \
+  -e WORKER_KEYSTORE_PATH=/data/eth-keystore/$(ls ~/lightchain-worker/keys/eth-keystore/ | head -1) \
+  -e WORKER_KEYSTORE_PASSWORD=&lt;YOUR_PASSWORD&gt; \
+  -e ENCRYPTION_KEYSTORE_PATH=/data/worker-encryption.key \
+  -e RPC_URL=https://rpc.mainnet.lightchain.ai \
+  -e CHAIN_ID=9200 \
+  -e WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002 \
+  -e AI_CONFIG_ADDRESS=$AI_CONFIG_ADDRESS \
+  -e JOB_REGISTRY_ADDRESS=$JOB_REGISTRY_ADDRESS \
+  -e SUPPORTED_MODELS=llama3-8b \
+  -e OLLAMA_URL=http://host.docker.internal:11434 \
+  -e BEACON_API_URL=https://beacon.mainnet.lightchain.ai \
+  -e BLOB_MODE=beacon \
+  -e SESSION_KEY_FILE=/data/session-keys.enc \
+  -e WORKER_GATEWAY_URL=https://worker-gateway.mainnet.lightchain.ai \
+  us-central1-docker.pkg.dev/lightchain/lightchain-mainnet-public-docker/worker:latest</pre></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Watch the logs — look for these 6 lines</div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'docker logs lightchain-worker --tail 30')">Copy</button></div>
+          <div class="code-content"><pre>docker logs lightchain-worker --tail 30</pre></div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="callout success">
+            <div class="callout-icon">✅</div>
+            <div class="callout-body"><strong>These 6 lines = you're fully online</strong>
+              <code style="display:block;margin-top:6px;font-family:monospace;font-size:12px;color:var(--green)">worker registration validated — on-chain key matches local key</code>
+              <code style="display:block;font-family:monospace;font-size:12px;color:var(--green)">blob mode: eip-4844 (beacon)</code>
+              <code style="display:block;font-family:monospace;font-size:12px;color:var(--green)">authenticated with worker-gateway</code>
+              <code style="display:block;font-family:monospace;font-size:12px;color:var(--green)">worker service initialized (gateway mode)</code>
+              <code style="display:block;font-family:monospace;font-size:12px;color:var(--green)">worker sidecar running (gateway mode)</code>
+              <code style="display:block;font-family:monospace;font-size:12px;color:var(--green)">websocket connected to gateway</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">What's normal in the logs — don't panic about these</div>
+        <div class="checklist">
+          <li>
+            <div class="check-box checked">✓</div>
+            <div class="check-text"><strong>WebSocket disconnected + reconnected every ~1 hour</strong><small>Normal auth token refresh. Reconnects within 1-2 seconds automatically.</small></div>
+          </li>
+          <li>
+            <div class="check-box checked">✓</div>
+            <div class="check-text"><strong>worker_ollama_up=0</strong><small>Cosmetic display issue confirmed by the Lightchain team. Your node is still serving jobs.</small></div>
+          </li>
+          <li>
+            <div class="check-box checked">✓</div>
+            <div class="check-text"><strong>Ollama WARN messages on startup</strong><small>Cosmetic. Not an error.</small></div>
+          </li>
+          <li>
+            <div class="check-box checked">✓</div>
+            <div class="check-text"><strong>reconciler: pass complete — every hour</strong><small>Normal chain sync. Healthy sign.</small></div>
+          </li>
+          <li>
+            <div class="check-box checked">✓</div>
+            <div class="check-text"><strong>scheduler: batch release succeeded</strong><small>Job payouts were processed. This is a good sign — money moving.</small></div>
+          </li>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Next: Health Checks →</button>
+        <span class="step-counter">Step 11 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 12: HEALTH CHECKS -->
+    <div class="step" id="step-12">
+      <div class="step-header">
+        <div class="step-phase">Ongoing</div>
+        <div class="step-title">Health Checks</div>
+        <div class="step-desc">Run all 10 checks at once with one click, or run them manually one by one below.</div>
+      </div>
+
+      <!-- LIVE HEALTH CHECK PANEL -->
+      <div class="card" style="border-color:rgba(0,212,255,0.3);margin-bottom:24px" id="liveCheckCard">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>⚡ Live Health Check</span>
+          <span id="liveCheckBadge" style="font-size:12px;color:var(--muted);font-weight:400">Requires local server running</span>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Runs all 10 checks on your machine instantly — no copy-paste needed. Requires the Node Builder server to be running at localhost:8185.</p>
+        <button id="liveCheckBtn" onclick="runLiveCheck()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:10px 24px;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+          ▶ Run All Checks Now
+        </button>
+        <div id="liveCheckResults" style="margin-top:16px;display:none">
+          <div id="liveCheckSummary" style="font-weight:700;margin-bottom:12px;font-size:15px"></div>
+          <div id="liveCheckList" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+
+      <div class="health-grid">
+        <div class="health-item">
+          <div class="health-num">Check 1 — Docker</div>
+          <div class="health-title">Is the container running?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'docker ps --filter name=lightchain-worker')">Copy</button></div><div class="code-content"><pre>docker ps --filter name=lightchain-worker</pre></div></div>
+          <div class="health-normal">Expected: <strong>STATUS = "Up X hours/days"</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 2 — Logs</div>
+          <div class="health-title">Recent worker activity</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'docker logs lightchain-worker --tail 50')">Copy</button></div><div class="code-content"><pre>docker logs lightchain-worker --tail 50</pre></div></div>
+          <div class="health-normal">Expected: <strong>Regular reconciler + auth lines, no ERROR panics</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 3 — Redis</div>
+          <div class="health-title">Is Redis running?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'sudo systemctl status redis-server --no-pager')">Copy</button></div><div class="code-content"><pre>sudo systemctl status redis-server --no-pager</pre></div></div>
+          <div class="health-normal">Expected: <strong>Active (running)</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 4 — Ollama models</div>
+          <div class="health-title">Are models installed?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'ollama list')">Copy</button></div><div class="code-content"><pre>ollama list</pre></div></div>
+          <div class="health-normal">Expected: <strong>llama3-8b visible in list</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 5 — Ollama live</div>
+          <div class="health-title">Is Ollama actually responding?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool')">Copy</button></div><div class="code-content"><pre>curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool</pre></div></div>
+          <div class="health-normal">Expected: <strong>JSON with models list — if error, Ollama is down</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 6 — VPN</div>
+          <div class="health-title">Is Mullvad connected?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'mullvad status')">Copy</button></div><div class="code-content"><pre>mullvad status</pre></div></div>
+          <div class="health-normal">Expected: <strong>Connected</strong> (required if your ISP blocks Lightchain)</div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 7 — GPU</div>
+          <div class="health-title">GPU health and VRAM</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'nvidia-smi')">Copy</button></div><div class="code-content"><pre>nvidia-smi</pre></div></div>
+          <div class="health-normal">Expected: <strong>Temp under 80°C, Ollama process visible using VRAM</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 8 — Disk space</div>
+          <div class="health-title">Is disk getting full?</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'df -h ~')">Copy</button></div><div class="code-content"><pre>df -h ~</pre></div></div>
+          <div class="health-normal">Expected: <strong>At least 20GB free — models + Docker images are large</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 9 — Container resources</div>
+          <div class="health-title">CPU and memory usage</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this, 'docker stats lightchain-worker --no-stream')">Copy</button></div><div class="code-content"><pre>docker stats lightchain-worker --no-stream</pre></div></div>
+          <div class="health-normal">Expected: <strong>Low CPU (the heavy lifting is Ollama), low memory</strong></div>
+        </div>
+        <div class="health-item">
+          <div class="health-num">Check 10 — On-chain status</div>
+          <div class="health-title">Live jobs, earnings, offenses</div>
+          <div class="code-block"><div class="code-header"><span class="code-label">terminal — replace address</span><button class="copy-btn" onclick="copyCode(this, `curl -s -X POST -H 'content-type: application/json' \\\n  --data '{\"query\":\"{ workers(where:{id:\\\\\"0xYOUR_WORKER_ADDRESS\\\\\"}){ id status active_job_count jobs_completed total_earned offense_count stake } }\"}' \\\n  https://workers-api.mainnet.lightchain.ai/graphql | python3 -m json.tool`)">Copy</button></div><div class="code-content"><pre>curl -s -X POST -H 'content-type: application/json' \
+  --data '{"query":"{ workers(where:{id:\"0xYOUR_WORKER_ADDRESS\"}){ id status active_job_count jobs_completed total_earned offense_count stake } }"}' \
+  https://workers-api.mainnet.lightchain.ai/graphql | python3 -m json.tool</pre></div></div>
+          <div class="health-normal">Expected: <strong>status: active, offense_count: 0, stake: 50000000...</strong></div>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="next()">Resources & Links →</button>
+        <span class="step-counter">Step 12 of 13</span>
+      </div>
+    </div>
+
+    <!-- STEP 13: RESOURCES -->
+    <div class="step" id="step-13">
+      <div class="step-header">
+        <div class="step-phase">Reference</div>
+        <div class="step-title">Resources & Links</div>
+        <div class="step-desc">Everything you need bookmarked in one place.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Lightchain Network</div>
+        <div class="links-grid">
+          <a href="https://workers.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Explorer</div><div class="link-card-title">Worker Explorer</div><div class="link-card-url">workers.lightchain.ai</div></a>
+          <a href="https://mainnet.lightscan.app" target="_blank" class="link-card"><div class="link-card-label">Explorer</div><div class="link-card-title">Mainnet Block Explorer</div><div class="link-card-url">mainnet.lightscan.app</div></a>
+          <a href="https://workers.lightchain.ai/run-node" target="_blank" class="link-card"><div class="link-card-label">Official Docs</div><div class="link-card-title">Run a Node (Official)</div><div class="link-card-url">workers.lightchain.ai/run-node</div></a>
+          <a href="https://docs.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Docs</div><div class="link-card-title">Developer Documentation</div><div class="link-card-url">docs.lightchain.ai</div></a>
+          <a href="https://dao.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Governance</div><div class="link-card-title">DAO Voting</div><div class="link-card-url">dao.lightchain.ai</div></a>
+          <a href="https://bridge.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Bridge</div><div class="link-card-title">LCAI Bridge</div><div class="link-card-url">bridge.lightchain.ai</div></a>
+          <a href="https://status.mainnet.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Status</div><div class="link-card-title">Network Status</div><div class="link-card-url">status.mainnet.lightchain.ai</div></a>
+          <a href="https://forum.lightchain.ai" target="_blank" class="link-card"><div class="link-card-label">Community</div><div class="link-card-title">Community Forum</div><div class="link-card-url">forum.lightchain.ai</div></a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">GitHub — Official Repos</div>
+        <div class="links-grid">
+          <a href="https://github.com/lightchain-protocol/lightchain-worker-toolkit" target="_blank" class="link-card"><div class="link-card-label">GitHub</div><div class="link-card-title">Worker Toolkit</div><div class="link-card-url">lightchain-worker-toolkit</div></a>
+          <a href="https://github.com/lightchain-protocol/lcai-smart-contract" target="_blank" class="link-card"><div class="link-card-label">GitHub</div><div class="link-card-title">Smart Contracts</div><div class="link-card-url">lcai-smart-contract</div></a>
+          <a href="https://github.com/lightchain-protocol/chain-node" target="_blank" class="link-card"><div class="link-card-label">GitHub</div><div class="link-card-title">Chain Node</div><div class="link-card-url">chain-node</div></a>
+          <a href="https://github.com/lightchain-protocol/lcai-dApp-hub" target="_blank" class="link-card"><div class="link-card-label">GitHub</div><div class="link-card-title">dApp Hub</div><div class="link-card-url">lcai-dApp-hub</div></a>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:rgba(0,212,255,0.35);background:rgba(0,212,255,0.04)">
+        <div class="card-title">⬇️ Node Template Kit</div>
+        <p style="color:var(--muted);margin-bottom:16px">Download pre-filled config files. All mainnet settings are already correct — just fill in your 3 personal values and run the script. No copy-paste errors, no guessing.</p>
+        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:16px;margin-bottom:16px;font-size:13px;line-height:1.8">
+          <div><span style="color:var(--cyan)">📄 .env.template</span> <span style="color:var(--muted)">— All configs pre-filled, 3 blanks for your keys</span></div>
+          <div><span style="color:var(--cyan)">🚀 run-worker.sh</span> <span style="color:var(--muted)">— One script to launch your node</span></div>
+          <div><span style="color:var(--cyan)">✅ setup-check.sh</span> <span style="color:var(--muted)">— Prerequisite checker before you start</span></div>
+        </div>
+        <button onclick="downloadTemplateKit()" style="background:var(--cyan);color:#000;border:none;border-radius:8px;padding:12px 24px;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+          ⬇️ Download Template Kit
+        </button>
+        <div style="color:var(--muted);font-size:12px;margin-top:10px">3 files — generates as a .zip in your browser. Nothing is sent to any server.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Contract Addresses — Mainnet</div>
+        <div style="font-size:13px;line-height:2;font-family:monospace;">
+          <div style="color:var(--muted)">WorkerRegistry (predeploy) <span style="color:var(--cyan)">0x0000000000000000000000000000000000001002</span></div>
+          <div style="color:var(--muted)">FeePool (predeploy) <span style="color:var(--cyan)">0x0000000000000000000000000000000000001004</span></div>
+          <div style="color:var(--muted)">AIConfig (proxy) <span style="color:var(--cyan)">0x24D11533C354092ed6E18b964257819cE78Ce77D</span></div>
+          <div style="color:var(--muted)">JobRegistry (proxy) <span style="color:var(--cyan)">0xfB15F90298e4CcD7106E76fFB5e520315cC42B0b</span></div>
+          <div style="color:var(--muted)">RPC <span style="color:var(--cyan)">https://rpc.mainnet.lightchain.ai</span></div>
+          <div style="color:var(--muted)">Chain ID <span style="color:var(--cyan)">9200</span></div>
+        </div>
+      </div>
+
+      <div class="callout success">
+        <div class="callout-icon">🎉</div>
+        <div class="callout-body"><strong>You're done!</strong>If your node is online, showing on the worker explorer, and you've run the health checks — you're a Lightchain node operator. Welcome to a very small club. Questions? Use the AI assistant button below.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="prev()">← Back</button>
+        <button class="btn btn-primary" onclick="goTo(0)">Start Over</button>
+      </div>
+    </div>
+
+    <!-- STEP 14: FAQ / BEGINNER'S GUIDE -->
+    <div class="step" id="step-14">
+      <div class="step-header">
+        <div class="step-phase">Reference</div>
+        <div class="step-title">Beginner's FAQ</div>
+        <div class="step-desc">New to this? Every question you're afraid to ask — answered in plain English.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🤔 What even is a Lightchain worker node?</div>
+        <p style="color:var(--muted);line-height:1.8">Think of it as renting out your gaming PC's GPU to process AI requests. When someone uses an AI app built on Lightchain, their request gets routed to a worker node like yours. You provide the computing power, they pay in LCAI, you keep the earnings. Your computer does the work, you get paid while you sleep.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💰 Do I really need 50,001 LCAI just to start?</div>
+        <p style="color:var(--muted);line-height:1.8">Yes — that's your stake, which is a security deposit that proves you're a serious operator. You get it back when you stop running the node. The 1 extra LCAI (above 50,000) is just to satisfy the minimum. You keep ownership of it the whole time; it's just locked while you're registered.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💻 What kind of computer do I need?</div>
+        <p style="color:var(--muted);line-height:1.8">A gaming PC with an NVIDIA GPU (RTX 3080 or better), at least 32GB of RAM, and 100GB+ of free storage. MacBooks don't work. AMD graphics cards don't work. Most modern gaming desktops qualify — if you bought it for gaming in the last 3-4 years, there's a good chance it'll work. The GPU does the AI processing, so that's the most important part.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🪟 Can I use Windows?</div>
+        <p style="color:var(--muted);line-height:1.8">The official setup requires Ubuntu Linux. You can install Ubuntu as your main OS, or set up dual-boot to run Ubuntu alongside Windows (you choose at startup). Running inside a virtual machine (like VirtualBox) is NOT recommended — it can't properly access your GPU. Ubuntu is free to download and install, and it's what Step 2 of this wizard covers.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🐳 What is Docker?</div>
+        <p style="color:var(--muted);line-height:1.8">Docker is a tool that runs software in an isolated container — like a locked box that keeps the node software separate from the rest of your computer. You don't need to understand how it works. You just install it, and the wizard handles the rest. Think of it as a safe sandbox where the node lives.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🦙 What is Ollama?</div>
+        <p style="color:var(--muted);line-height:1.8">Ollama is the software that runs the AI model (llama3) on your computer. When a job comes in from the network, Ollama processes it using your GPU. Think of it as a mini ChatGPT running locally on your machine. You install it, pull the model, and your node uses it to answer AI requests and earn LCAI.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔑 What is a private key and why is it so important?</div>
+        <p style="color:var(--muted);line-height:1.8">A private key is the password to a crypto wallet — except it can never be changed or recovered if lost. Anyone who has it controls that wallet completely. The wizard has you generate a <strong>separate worker wallet</strong> just for the node — different from your main wallet. That way, even in the worst case, your main LCAI balance is untouchable. Write your worker private key down on paper and store it somewhere safe. Never share it. Never put it in an email or chat.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏦 What is staking?</div>
+        <p style="color:var(--muted);line-height:1.8">Staking means depositing LCAI as a security deposit when you register your node. This 50,001 LCAI stays locked in the contract while your node is active. You're not spending it — it's still yours. You get it back when you officially stop running the node (deregister). The stake exists so operators have skin in the game and behave reliably.</p>
+      </div>
+
+      <div class="card" style="border-color:rgba(255,80,80,0.3)">
+        <div class="card-title">⚠️ What is slashing? Can I lose my money?</div>
+        <p style="color:var(--muted);line-height:1.8">Slashing means losing part of your stake as a penalty — approximately 7,500 LCAI. This happens if you deregister your node while it still has pending jobs. The fix is simple: <strong>never deregister suddenly</strong>. If something goes wrong, restart the Docker container first. Only deregister when you're sure there are no pending jobs. The slash is rare and entirely avoidable with careful operation.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⏰ Do I need to keep my computer on 24/7?</div>
+        <p style="color:var(--muted);line-height:1.8">Ideally yes — your node only earns when it's online and available. Downtime means missed jobs. Two things help: a UPS (uninterruptible power supply, about $60-150) protects you during power outages, and a phone hotspot gives you backup internet if your ISP goes down. Your node can come back online after being off without losing your stake — you just don't earn while it's offline.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💵 How much can I earn?</div>
+        <p style="color:var(--muted);line-height:1.8">Each completed job pays approximately 0.016 LCAI to your node. How many jobs you get depends on your stake (more stake = higher routing priority), network traffic, and uptime. The network is still young — there are only about 13 community nodes right now. Job volume will increase as more dApps launch on Lightchain. Right now is early-adopter territory: low competition, high future upside.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔒 Is it safe? Will this expose my computer to hackers?</div>
+        <p style="color:var(--muted);line-height:1.8">The node runs inside Docker (isolated) and only talks to official Lightchain endpoints — it doesn't open any ports to the internet on its own. Your worker private key is used only for signing transactions, not for accessing your main wallet. Using a VPN as recommended adds another layer. Keep your Ubuntu system updated, don't run random scripts from strangers, and you're fine.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔍 What if I get scary-looking errors in the logs?</div>
+        <p style="color:var(--muted);line-height:1.8">Most things that look like errors are actually normal. "WebSocket EOF" every hour is the auth token refreshing — completely expected. "worker_ollama_up=0" is cosmetic and doesn't affect jobs. "batch release succeeded" is actually great news (payouts processing). If you're not sure, paste the log line into the AI assistant and ask — it knows the difference between real errors and normal noise.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👛 What's the difference between the worker wallet and my main wallet?</div>
+        <p style="color:var(--muted);line-height:1.8">You use two completely separate wallets. Your <strong>funder wallet</strong> (your main wallet) holds your LCAI and sends the 50,001 stake to get the node registered. Your <strong>worker wallet</strong> is a brand new wallet you generate just for the node — it only needs a small amount of LCAI for gas fees. This way your main funds are never at risk even if something goes wrong with the node config.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🌐 What is a VPN and why might I need one?</div>
+        <p style="color:var(--muted);line-height:1.8">A VPN routes your internet traffic through a different server, which bypasses blocks your internet provider might have in place. Some ISPs (Cox is a known one) block the connections your node needs to reach the Lightchain network. If your setup commands keep timing out or failing to connect, try Mullvad VPN first — connect it before starting your node. Not everyone needs it, but it's worth having ready.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🎮 What is VRAM and how do I know if I have enough?</div>
+        <p style="color:var(--muted);line-height:1.8">VRAM is your GPU's dedicated memory — separate from your regular RAM. The AI model (llama3) needs about 5GB of it to run. To check how much you have, open a terminal and type: <code style="color:var(--cyan)">nvidia-smi</code>. Look for the memory line (e.g. "8192 MiB"). If you have 8GB or more, you're fine. If you have other GPU-heavy apps running (like image generation software), you may need to close them to free up VRAM.</p>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">💬</div>
+        <div class="callout-body"><strong>Still have questions?</strong> Hit the "Ask the Wizard" button at the bottom right. The AI assistant is powered by the same Lightchain network you're setting up — ask anything, no question is too basic.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="goTo(13)">← Resources</button>
+        <button class="btn btn-primary" onclick="goTo(0)">Back to Start</button>
+      </div>
+    </div>
+
+    <!-- STEP 15: TROUBLESHOOT -->
+    <div class="step" id="step-15">
+      <div class="step-header">
+        <div class="step-phase">Support</div>
+        <div class="step-title">Troubleshooting</div>
+        <div class="step-desc">Already running a node and something's wrong? Find your symptom below.</div>
+      </div>
+
+      <!-- SYMPTOM NAV -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
+        <a href="#ts-reboot" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">⚡ After reboot / power loss</a>
+        <a href="#ts-nojobs" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">🚫 Zero jobs</a>
+        <a href="#ts-crashing" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">💥 Container crashing</a>
+        <a href="#ts-timeout" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">⏱ Jobs timing out</a>
+        <a href="#ts-websocket" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">🔌 WebSocket issues</a>
+        <a href="#ts-slash" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">⚠️ Slash / stake</a>
+        <a href="#ts-emergency" style="background:var(--cyan);border:1px solid var(--cyan);border-radius:20px;padding:7px 14px;color:#000;text-decoration:none;font-size:13px;font-weight:700">🚨 Emergency restart</a>
+        <a href="#ts-deregbug" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">🔴 Status stuck as "deregistered"</a>
+        <a href="#ts-gemmabug" style="background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:7px 14px;color:var(--muted);text-decoration:none;font-size:13px">⛔ gemma4:e2b fails to register</a>
+      </div>
+
+      <!-- REBOOT -->
+      <div class="card" id="ts-reboot">
+        <div class="card-title">⚡ After reboot or power loss — node not coming back</div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:16px">This is the #1 issue for running operators. The container may restart, but if Ollama isn't running or VPN isn't connected, jobs silently stop. Here's the one-time fix that makes your node bulletproof after any reboot:</p>
+
+        <div class="callout tip" style="margin-bottom:16px">
+          <div class="callout-icon">1</div>
+          <div class="callout-body"><strong>Make Docker start on boot</strong></div>
+        </div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>sudo systemctl enable docker</pre></div></div>
+
+        <div class="callout tip" style="margin-bottom:16px;margin-top:16px">
+          <div class="callout-icon">2</div>
+          <div class="callout-body"><strong>Make Ollama start on boot</strong></div>
+        </div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>sudo systemctl enable ollama</pre></div></div>
+
+        <div class="callout tip" style="margin-bottom:16px;margin-top:16px">
+          <div class="callout-icon">3</div>
+          <div class="callout-body"><strong>Set worker container to auto-restart</strong></div>
+        </div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>docker update --restart unless-stopped lcai-worker</pre></div></div>
+
+        <div class="callout tip" style="margin-bottom:16px;margin-top:16px">
+          <div class="callout-icon">4</div>
+          <div class="callout-body"><strong>Set Mullvad VPN to auto-connect on startup</strong></div>
+        </div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>mullvad auto-connect set on
+mullvad connect</pre></div></div>
+
+        <div class="callout success" style="margin-top:16px">
+          <div class="callout-icon">✓</div>
+          <div class="callout-body">After these four steps, your node will survive any power outage or reboot automatically — Docker starts, Ollama starts, VPN connects, container restarts. No manual intervention needed.</div>
+        </div>
+      </div>
+
+      <!-- ZERO JOBS -->
+      <div class="card" id="ts-nojobs" style="margin-top:20px">
+        <div class="card-title">🚫 All looks good but zero jobs coming in</div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:16px">This is the most frustrating scenario — logs look healthy, container is up, but no jobs. Work through this checklist in order:</p>
+
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">① Is websocket connected?</div>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Jobs can only come in if the WebSocket is active. Check logs:</p>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>docker logs lcai-worker --tail 30 2>&1 | grep -i websocket</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:8px">You need to see: <code style="color:var(--green)">websocket connected to gateway</code><br>If absent or showing errors → restart the container and check VPN.</p>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">② Is your VPN connected?</div>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>mullvad status</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:8px">Must show "Connected". If disconnected: <code style="color:var(--cyan)">mullvad connect</code><br>If you're on Cox or another blocking ISP and VPN is off, your node can't reach the gateway.</p>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">③ Is the bare alias still there?</div>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>ollama list | grep llama3-8b</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:8px">You need a model named exactly <code style="color:var(--cyan)">llama3-8b</code> (dash, not colon). If missing after an Ollama update, recreate it: <code style="color:var(--cyan)">ollama cp llama3:8b llama3-8b</code></p>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">④ Are you visible on the worker explorer?</div>
+            <p style="color:var(--muted);font-size:13px">Check <a href="https://workers.lightchain.ai" target="_blank" style="color:var(--cyan)">workers.lightchain.ai</a> and search your worker address. If your node shows as "offline" or "suspended", that's the real problem — not a config issue.</p>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">⑤ Is your stake high enough?</div>
+            <p style="color:var(--muted);font-size:13px">Routing priority is proportional to your stake. If you're registered with the minimum (50,001 LCAI) and there are nodes with larger stakes, you may simply be getting fewer jobs. This is expected — staking more increases your share. This isn't a bug, it's the system working as designed.</p>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-weight:700;margin-bottom:6px;color:var(--cyan)">⑥ Check network job volume</div>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Query the subgraph to see recent network job activity:</p>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>curl -s -X POST https://workers-api.mainnet.lightchain.ai/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ jobs(first:5,orderBy:submittedAt,orderDirection:desc) { id state submittedAt } }"}' | python3 -m json.tool</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:8px">If total recent jobs is very low, the network is quiet — nothing is wrong with your node.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CRASHING -->
+      <div class="card" id="ts-crashing" style="margin-top:20px">
+        <div class="card-title">💥 Container keeps restarting or crashing</div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:12px">First, read the logs to find the real error:</p>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>docker logs lcai-worker --tail 100 2>&1</pre></div></div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">Error: invalid private key / cannot decrypt keystore</div>
+            <p style="color:var(--muted);font-size:13px">Your PRIVATE_KEY or ENCRYPTION_KEYSTORE_PATH env variable is wrong or the file path doesn't exist inside the container. Verify the key format (must start with 0x) and that any mounted paths are correct.</p>
+          </div>
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">Error: connection refused / dial tcp failed</div>
+            <p style="color:var(--muted);font-size:13px">The container can't reach the Lightchain RPC. Check VPN status (<code style="color:var(--cyan)">mullvad status</code>) and that Ollama is running (<code style="color:var(--cyan)">curl http://localhost:11434/api/tags</code>).</p>
+          </div>
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">Container exits immediately with no error</div>
+            <p style="color:var(--muted);font-size:13px">Try running without <code style="color:var(--cyan)">-d</code> (detached) to see output in real-time: <code style="color:var(--cyan)">docker run --rm [all your flags] lightchain/lcai-worker:latest</code></p>
+          </div>
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">OOM / out of memory</div>
+            <p style="color:var(--muted);font-size:13px">Check GPU VRAM: <code style="color:var(--cyan)">nvidia-smi</code>. If another app (ComfyUI, Stable Diffusion, etc.) is using VRAM, close it. The model needs ~5GB free.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMEOUTS -->
+      <div class="card" id="ts-timeout" style="margin-top:20px">
+        <div class="card-title">⏱ Jobs coming in but timing out or failing</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px">Check if Ollama is actually processing</div>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>nvidia-smi</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:6px">When a job is processing, GPU utilization should spike. If it stays at 0% during a job, Ollama isn't getting the request.</p>
+          </div>
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px">VRAM conflict with other apps</div>
+            <p style="color:var(--muted);font-size:13px">If you run image generation (ComfyUI, A1111) alongside your node, they compete for VRAM. Check total VRAM usage in <code style="color:var(--cyan)">nvidia-smi</code>. Ollama needs ~5GB free to process jobs without swapping.</p>
+          </div>
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px">Test Ollama directly</div>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>curl http://localhost:11434/api/generate \
+  -d '{"model":"llama3-8b","prompt":"say hello","stream":false}'</pre></div></div>
+            <p style="color:var(--muted);font-size:13px;margin-top:6px">Should return a response within 30 seconds. If it hangs or errors, Ollama itself is the problem.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEBSOCKET -->
+      <div class="card" id="ts-websocket" style="margin-top:20px">
+        <div class="card-title">🔌 WebSocket keeps disconnecting</div>
+        <div class="callout success" style="margin-bottom:16px">
+          <div class="callout-icon">✓</div>
+          <div class="callout-body"><strong>Once per hour is NORMAL</strong> — the auth token refreshes every ~60 minutes. You'll see "WebSocket EOF" or "websocket reconnecting" in logs. This is expected and doesn't affect job processing.</div>
+        </div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:12px">If it's disconnecting more frequently (every few minutes):</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px">Try a different VPN server</div>
+            <p style="color:var(--muted);font-size:13px">Your Mullvad VPN server might be overloaded or having issues. Switch to a different server — US or EU servers generally work well.</p>
+            <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>mullvad relay set location us    # try US servers
+mullvad reconnect</pre></div></div>
+          </div>
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px">Check network stability</div>
+            <p style="color:var(--muted);font-size:13px">Frequent disconnects can mean unstable internet. A phone hotspot as backup internet can help. The container auto-reconnects — but if your ISP connection is flapping, jobs during that window are missed.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLASH -->
+      <div class="card" id="ts-slash" style="margin-top:20px;border-color:rgba(255,80,80,0.3)">
+        <div class="card-title">⚠️ I think I got slashed — what do I do?</div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:12px">First, check your actual stake — you may not have been slashed yet:</p>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>curl -s -X POST https://workers-api.mainnet.lightchain.ai/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ workers(where:{id:\"YOUR_WORKER_ADDRESS\"}) { stake offenseCount suspendedUntil } }"}' | python3 -m json.tool</pre></div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">offenseCount &gt; 0 but stake unchanged</div>
+            <p style="color:var(--muted);font-size:13px">You received a warning/offense but haven't been slashed yet. Your node may be temporarily suspended. Wait for the suspendedUntil timestamp to pass, then resume operations normally.</p>
+          </div>
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">Stake is less than 50,001 LCAI</div>
+            <p style="color:var(--muted);font-size:13px">You were slashed. The penalty is approximately 7,500 LCAI. Your node may still be registered and operational if stake is above the minimum. Top up your stake if needed, and <strong>do not deregister</strong> until all pending jobs are clear.</p>
+          </div>
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">How to avoid future slashes</div>
+            <p style="color:var(--muted);font-size:13px">Never deregister suddenly. Set up the auto-restart procedure (first section above) so your node survives power loss. If you need to stop the node, restart the Docker container first instead of deregistering.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMERGENCY RESTART -->
+      <div class="card" id="ts-emergency" style="margin-top:20px;border-color:rgba(0,212,255,0.35);background:rgba(0,212,255,0.03)">
+        <div class="card-title">🚨 Emergency Restart — Run Everything in Order</div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:16px">Something's wrong and you need to restart everything cleanly. Run these commands in order:</p>
+
+        <div class="callout tip" style="margin-bottom:12px"><div class="callout-icon">1</div><div class="callout-body"><strong>Connect VPN first</strong></div></div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>mullvad connect && mullvad status</pre></div></div>
+
+        <div class="callout tip" style="margin-top:16px;margin-bottom:12px"><div class="callout-icon">2</div><div class="callout-body"><strong>Start Ollama and verify model</strong></div></div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>sudo systemctl start ollama
+sleep 5
+curl http://localhost:11434/api/tags | python3 -m json.tool</pre></div></div>
+
+        <div class="callout tip" style="margin-top:16px;margin-bottom:12px"><div class="callout-icon">3</div><div class="callout-body"><strong>Recreate bare alias if needed</strong></div></div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>ollama cp llama3:8b llama3-8b</pre></div></div>
+
+        <div class="callout tip" style="margin-top:16px;margin-bottom:12px"><div class="callout-icon">4</div><div class="callout-body"><strong>Restart worker container</strong></div></div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>docker restart lcai-worker 2>/dev/null || docker restart lightchain-worker 2>/dev/null</pre></div></div>
+
+        <div class="callout tip" style="margin-top:16px;margin-bottom:12px"><div class="callout-icon">5</div><div class="callout-body"><strong>Watch startup logs — look for all 6 healthy lines</strong></div></div>
+        <div class="code-block"><div class="code-header"><span class="code-label">terminal</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><div class="code-content"><pre>docker logs -f lcai-worker 2>/dev/null || docker logs -f lightchain-worker 2>/dev/null</pre></div></div>
+
+        <div class="callout success" style="margin-top:16px">
+          <div class="callout-icon">✓</div>
+          <div class="callout-body"><strong>All 6 lines = you're good:</strong> worker registration validated → blob mode: eip-4844 → authenticated with worker-gateway → worker service initialized → worker sidecar running → websocket connected to gateway</div>
+        </div>
+      </div>
+
+      <!-- DEREGISTERED BUG -->
+      <div class="card" id="ts-deregbug" style="margin-top:20px;border-color:rgba(255,80,80,0.3)">
+        <div class="card-title">🔴 Status shows "deregistered" after re-registration — known network bug</div>
+        <div class="callout warning" style="margin-bottom:16px">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-body"><strong>This is a confirmed Lightchain indexer bug — not your fault.</strong> If you deregistered and then re-registered, the workers-api may show your status as "deregistered" indefinitely even though you are fully registered on-chain.</div>
+        </div>
+        <p style="color:var(--muted);line-height:1.8;margin-bottom:16px">The bug: the indexer watches WorkerRegistry events but doesn't reset <code style="color:var(--cyan)">is_registered</code> to true when a new <code style="color:var(--cyan)">WorkerJoined</code> event follows an earlier <code style="color:var(--cyan)">ExitFinalized</code>. So the API is wrong — your on-chain state is correct.</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--cyan)">How to confirm you are actually registered</div>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Check <a href="https://workers.lightchain.ai" target="_blank" style="color:var(--cyan)">workers.lightchain.ai</a> and search your worker address. The explorer reads on-chain state directly — if it shows you as active with your stake intact, you are registered. Ignore the API status.</p>
+          </div>
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--cyan)">What to do</div>
+            <p style="color:var(--muted);font-size:13px">Nothing — your node is fine. Report the discrepancy in the Lightchain Discord so the team can fix the indexer. Do NOT deregister and re-register again trying to fix the display — that risks another slash.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- GEMMA4 BUG -->
+      <div class="card" id="ts-gemmabug" style="margin-top:20px;border-color:rgba(255,80,80,0.3)">
+        <div class="card-title">⛔ gemma4:e2b — do not try to register this model</div>
+        <div class="callout warning" style="margin-bottom:16px">
+          <div class="callout-icon">⚠️</div>
+          <div class="callout-body"><strong>Known bug:</strong> <code style="color:var(--cyan)">gemma4:e2b</code> is listed as whitelisted and enabled in the model registry, but <code style="color:var(--cyan)">AddSupportedModel</code> reverts with no error message when you try to register it. The contract is broken for this model. <code style="color:var(--cyan)">llama3-8b</code> works correctly.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.2);border-radius:10px;padding:12px">
+            <div style="font-weight:700;color:var(--red);margin-bottom:4px">What happens if you try it</div>
+            <p style="color:var(--muted);font-size:13px">The worker binary registers the node, then tries to add gemma4:e2b as a supported model, gets a revert, and rolls back via DeregisterWorker. This triggers an endless loop of register → deregister → register. This also triggers Bug #1 above (status stuck as deregistered). Do not attempt to use this model until the team fixes the contract.</p>
+          </div>
+          <div style="background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--cyan)">What to do instead</div>
+            <p style="color:var(--muted);font-size:13px">Use <code style="color:var(--cyan)">llama3-8b</code> only. It is confirmed working and is the standard model for Lightchain worker nodes. Remove any reference to gemma4:e2b from your <code style="color:var(--cyan)">SUPPORTED_MODELS</code> environment variable.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout tip" style="margin-top:20px">
+        <div class="callout-icon">💬</div>
+        <div class="callout-body"><strong>Still stuck?</strong> Hit "Ask the Wizard" and describe what you're seeing. Paste your log output using the 📋 button — the AI can read it and tell you exactly what's wrong.</div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-ghost" onclick="goTo(14)">← FAQ</button>
+        <button class="btn btn-primary" onclick="goTo(0)">Back to Start</button>
+      </div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end layout -->
+
+<!-- AI CHAT -->
+<button class="ai-fab" onclick="toggleChat()" title="Ask Node Builder AI">
+  <span style="font-size:20px">💬</span>
+  <span class="ai-fab-text">Ask the Wizard</span>
+</button>
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-header">
+    <div class="ai-resize-handle" id="aiResizeHandle" title="Drag to resize">⤡</div>
+    <span style="font-size:22px">🐬</span>
+    <div>
+      <div class="ai-panel-title">Node Builder AI</div>
+      <div class="ai-panel-sub">Ask anything about node setup</div>
+    </div>
+    <button class="ai-panel-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="ai-messages" id="aiMessages">
+    <div class="ai-msg bot">Hey! I'm the Node Builder AI assistant, powered by Lightchain AIVM — the same network you're setting up. Ask me anything: commands, errors, what's normal in logs, what the gotchas are. I've been trained on real operator experience running a node on Lightchain mainnet.</div>
+  </div>
+  <div id="pasteArea" style="display:none;padding:10px 12px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">📋 Paste your terminal output below — the AI will interpret it in context of your current setup step:</div>
+    <textarea id="pasteInput" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12px;font-family:monospace;resize:vertical;min-height:80px;box-sizing:border-box;outline:none" placeholder="Paste terminal output here..."></textarea>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button onclick="sendPaste()" style="flex:1;background:var(--cyan);color:#000;border:none;border-radius:6px;padding:7px;font-weight:700;font-size:13px;cursor:pointer">Analyze This</button>
+      <button onclick="document.getElementById('pasteArea').style.display='none'" style="background:var(--bg3);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer;font-size:13px">Cancel</button>
+    </div>
+  </div>
+  <div class="ai-input-row">
+    <button onclick="togglePaste()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--muted);cursor:pointer;font-size:14px;flex-shrink:0" title="Paste terminal output">📋</button>
+    <input class="ai-input" id="aiInput" placeholder="Ask a question..." onkeydown="if(event.key==='Enter')sendMsg()">
+    <button class="ai-send" onclick="sendMsg()">Ask</button>
+  </div>
+</div>
+
+<script>
+  let currentStep = 0;
+  const totalSteps = 13;
+
+  function goTo(n) {
+    document.getElementById('step-' + currentStep).classList.remove('active');
+    document.getElementById('nav-' + currentStep).classList.remove('active');
+    currentStep = n;
+    document.getElementById('step-' + currentStep).classList.add('active');
+    document.getElementById('nav-' + currentStep).classList.add('active');
+    const pct = (currentStep / totalSteps) * 100;
+    document.getElementById('progress').style.width = pct + '%';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function next() { if (currentStep < totalSteps) goTo(currentStep + 1); }
+  function prev() { if (currentStep > 0) goTo(currentStep - 1); }
+
+  function copyCode(btn, text) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const content = text || pre.textContent;
+    navigator.clipboard.writeText(content).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function toggleCheck(el) {
+    el.classList.toggle('checked');
+    if (el.classList.contains('checked')) el.textContent = '✓';
+    else el.textContent = '';
+  }
+
+  // ── Template Kit Download ──────────────────────────────────────────
+  function downloadTemplateKit() {
+    const envTemplate = `# Node Builder .env Template
+# Generated by Node Builder Wizard — https://keiko-dev-lcai.github.io/orcanode/
+#
+# FILL IN THESE 3 VALUES (everything else is pre-filled for Lightchain mainnet):
+#
+PRIVATE_KEY=PASTE_YOUR_WORKER_PRIVATE_KEY_HERE
+ECDH_KEY=PASTE_YOUR_ECDH_KEY_IN_BASE64_HERE
+WORKER_ADDRESS=PASTE_YOUR_WORKER_WALLET_ADDRESS_HERE
+#
+# The following are already correct for Lightchain mainnet — do not change:
+SUPPORTED_MODELS=llama3-8b
+OLLAMA_URL=http://host.docker.internal:11434
+CHAIN_ID=9200
+RPC_URL=https://rpc.mainnet.lightchain.ai
+BEACON_API_URL=https://beacon.mainnet.lightchain.ai
+WORKER_REGISTRY_ADDRESS=0x0000000000000000000000000000000000001002
+WORKER_GATEWAY_URL=https://worker-gateway.mainnet.lightchain.ai
+# DO NOT SET MODELS_MAP — it breaks worker job routing (community confirmed)
+`;
+
+    const runWorker = `#!/usr/bin/env bash
+# run-worker.sh — Start your Lightchain AI worker node
+# Generated by Node Builder Wizard — https://keiko-dev-lcai.github.io/orcanode/
+#
+# Prerequisites:
+#   1. Fill in .env (PRIVATE_KEY, ECDH_KEY, WORKER_ADDRESS)
+#   2. Ollama running: ollama serve
+#   3. Bare alias created: ollama cp llama3:8b llama3-8b
+#   4. VPN connected (if your ISP blocks Lightchain RPC)
+#   5. Node registered on-chain (Step 10 in the wizard)
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="\$SCRIPT_DIR/.env"
+
+if [ ! -f "\$ENV_FILE" ]; then
+  echo "ERROR: .env file not found at \$ENV_FILE"
+  echo "Copy .env.template to .env and fill in your values."
+  exit 1
+fi
+
+# Load env file
+set -a
+source "\$ENV_FILE"
+set +a
+
+# Validate required values
+for VAR in PRIVATE_KEY ECDH_KEY WORKER_ADDRESS; do
+  VAL="\${!VAR}"
+  if [ -z "\$VAL" ] || [[ "\$VAL" == *"PASTE"* ]]; then
+    echo "ERROR: \$VAR is not set in .env"
+    exit 1
+  fi
+done
+
+echo "Starting Lightchain AI Worker..."
+echo "  Worker: \$WORKER_ADDRESS"
+echo "  Models: \$SUPPORTED_MODELS"
+echo ""
+
+# Stop existing container if running
+docker stop lcai-worker 2>/dev/null || true
+docker rm   lcai-worker 2>/dev/null || true
+
+# Pull latest image
+echo "Pulling latest worker image..."
+docker pull lightchain/lcai-worker:latest
+
+# Launch worker
+docker run -d --name lcai-worker \\
+  --gpus all \\
+  --network host \\
+  --add-host=host.docker.internal:host-gateway \\
+  --restart unless-stopped \\
+  -e PRIVATE_KEY="\$PRIVATE_KEY" \\
+  -e ECDH_KEY="\$ECDH_KEY" \\
+  -e SUPPORTED_MODELS="\$SUPPORTED_MODELS" \\
+  -e OLLAMA_URL="\$OLLAMA_URL" \\
+  -e CHAIN_ID="\$CHAIN_ID" \\
+  -e RPC_URL="\$RPC_URL" \\
+  -e BEACON_API_URL="\$BEACON_API_URL" \\
+  -e WORKER_REGISTRY_ADDRESS="\$WORKER_REGISTRY_ADDRESS" \\
+  -e WORKER_GATEWAY_URL="\$WORKER_GATEWAY_URL" \\
+  lightchain/lcai-worker:latest
+
+echo ""
+echo "Worker started! Checking logs in 5 seconds..."
+sleep 5
+echo ""
+echo "=== Recent logs (last 30 lines) ==="
+docker logs lcai-worker --tail 30
+echo ""
+echo "Look for these 6 lines to confirm healthy startup:"
+echo "  worker registration validated"
+echo "  blob mode: eip-4844 (beacon)"
+echo "  authenticated with worker-gateway"
+echo "  worker service initialized (gateway mode)"
+echo "  worker sidecar running (gateway mode)"
+echo "  websocket connected to gateway"
+echo ""
+echo "Live logs: docker logs -f lcai-worker"
+`;
+
+    const setupCheck = `#!/usr/bin/env bash
+# setup-check.sh — Verify prerequisites before running your Lightchain worker
+# Generated by Node Builder Wizard — https://keiko-dev-lcai.github.io/orcanode/
+
+PASS=0
+FAIL=0
+
+check() {
+  local NAME="\$1"
+  local CMD="\$2"
+  local HINT="\$3"
+  if eval "\$CMD" &>/dev/null; then
+    echo "  [PASS] \$NAME"
+    ((PASS++))
+  else
+    echo "  [FAIL] \$NAME"
+    echo "         Hint: \$HINT"
+    ((FAIL++))
+  fi
+}
+
+echo "======================================"
+echo "  Node Builder Prerequisites Check"
+echo "======================================"
+echo ""
+
+echo "[ Docker ]"
+check "Docker installed"      "command -v docker"               "Install Docker: https://docs.docker.com/engine/install/ubuntu/"
+check "Docker running"        "docker info"                     "Start Docker: sudo systemctl start docker"
+check "nvidia-container-toolkit" "docker run --rm --gpus all nvidia/cuda:12.0-base-ubuntu22.04 nvidia-smi" "Install: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
+
+echo ""
+echo "[ GPU ]"
+check "nvidia-smi available"  "command -v nvidia-smi"           "Install NVIDIA drivers: sudo ubuntu-drivers autoinstall"
+check "GPU detected"          "nvidia-smi"                      "Check NVIDIA driver installation"
+check "CUDA available"        "nvidia-smi | grep -i cuda"       "Install CUDA toolkit"
+
+echo ""
+echo "[ Ollama ]"
+check "Ollama installed"      "command -v ollama"               "Install: curl -fsSL https://ollama.ai/install.sh | sh"
+check "Ollama running"        "curl -s http://localhost:11434/api/tags" "Start: ollama serve"
+check "llama3:8b pulled"      "ollama list | grep 'llama3:8b'"  "Pull: ollama pull llama3:8b"
+check "llama3-8b alias set"   "ollama list | grep 'llama3-8b '" "Create alias: ollama cp llama3:8b llama3-8b  (CRITICAL!)"
+
+echo ""
+echo "[ Foundry (cast) ]"
+check "cast installed"        "command -v cast"                 "Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
+
+echo ""
+echo "[ Redis ]"
+check "Redis installed"       "command -v redis-cli"            "Install: sudo apt install redis-server"
+check "Redis running"         "redis-cli ping | grep -i pong"   "Start: sudo systemctl start redis"
+
+echo ""
+echo "[ Network ]"
+check "Lightchain RPC accessible" "curl -sf https://rpc.mainnet.lightchain.ai" "Check VPN — some ISPs (Cox, etc.) block this. Use Mullvad VPN."
+check "Worker gateway accessible" "curl -sf https://worker-gateway.mainnet.lightchain.ai" "Check network/VPN"
+
+echo ""
+echo "======================================"
+if [ "\$FAIL" -eq 0 ]; then
+  echo "  All \$PASS checks passed! You're ready to run the worker."
+else
+  echo "  \$PASS passed, \$FAIL failed. Fix the issues above before running."
+fi
+echo "======================================"
+`;
+
+    // Create a simple multi-file zip using the Blob API (no external library needed)
+    // We'll create individual file downloads since JSZip isn't loaded
+    const files = [
+      { name: '.env.template',  content: envTemplate },
+      { name: 'run-worker.sh',  content: runWorker },
+      { name: 'setup-check.sh', content: setupCheck },
+    ];
+
+    // Try to use JSZip if available, otherwise download files individually
+    if (window.JSZip) {
+      const zip = new window.JSZip();
+      files.forEach(f => zip.file(f.name, f.content));
+      zip.generateAsync({ type: 'blob' }).then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'orcanode-template.zip';
+        a.click();
+      });
+    } else {
+      // Download each file individually
+      files.forEach((f, i) => {
+        setTimeout(() => {
+          const blob = new Blob([f.content], { type: 'text/plain' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = f.name;
+          a.click();
+        }, i * 300);
+      });
+      setTimeout(() => {
+        alert('3 template files downloaded! Move them to the same folder, fill in .env, then run: bash run-worker.sh');
+      }, 1200);
+    }
+  }
+
+  // ── FAQ step (step 14) integration ─────────────────────────────────
+  // goTo() already handles step-14, just make sure the progress bar
+  // doesn't count it (it's reference material, not a setup step)
+  const _origGoTo = goTo; // goTo defined later — we'll patch it
+
+  // ── Smart Paste ────────────────────────────────────────────────────
+  function togglePaste() {
+    const pa = document.getElementById('pasteArea');
+    pa.style.display = pa.style.display === 'none' ? 'block' : 'none';
+    if (pa.style.display === 'block') document.getElementById('pasteInput').focus();
+  }
+
+  function sendPaste() {
+    const text = document.getElementById('pasteInput').value.trim();
+    if (!text) return;
+    document.getElementById('pasteArea').style.display = 'none';
+    document.getElementById('pasteInput').value = '';
+
+    const stepLabels = ['Welcome','Hardware','OS','Prerequisites','Worker Key','Contracts','Ollama','Docker Image','Import Key','Fund Wallet','Register','Run Worker','Health Checks','Resources','FAQ'];
+    const stepLabel = stepLabels[currentStep] || 'Step ' + currentStep;
+    const question = 'I am on the "' + stepLabel + '" step of node setup. Here is my terminal output — please tell me if this looks correct, and flag anything I should fix:\n\n' + text;
+
+    // Show in chat as if user typed it (abbreviated)
+    const messages = document.getElementById('aiMessages');
+    const panel = document.getElementById('aiPanel');
+    panel.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    const userEl = document.createElement('div');
+    userEl.className = 'ai-msg user';
+    userEl.textContent = '[Terminal output from ' + stepLabel + ' step — analyzing...]';
+    messages.appendChild(userEl);
+    messages.scrollTop = messages.scrollHeight;
+
+    // Send directly without going through the input
+    _sendQuestion(question);
+  }
+
+  // ── Live Health Check ──────────────────────────────────────────────
+  async function runLiveCheck() {
+    const btn = document.getElementById('liveCheckBtn');
+    const results = document.getElementById('liveCheckResults');
+    const summary = document.getElementById('liveCheckSummary');
+    const list = document.getElementById('liveCheckList');
+    const badge = document.getElementById('liveCheckBadge');
+
+    btn.textContent = '⏳ Running checks...';
+    btn.disabled = true;
+    results.style.display = 'none';
+
+    try {
+      const r = await fetch(BACKEND_URL + '/api/node-check', { method: 'GET' });
+      if (!r.ok) throw new Error('Server returned ' + r.status);
+      const d = await r.json();
+
+      badge.textContent = d.summary;
+      badge.style.color = d.passed === d.total ? 'var(--green)' : 'var(--red)';
+
+      summary.textContent = d.passed === d.total
+        ? '✅ All ' + d.total + ' checks passed — node looks healthy!'
+        : '⚠️ ' + d.passed + '/' + d.total + ' checks passed';
+      summary.style.color = d.passed === d.total ? 'var(--green)' : '#ffaa00';
+
+      // Per-check fix tips shown when a check fails
+      const fixTips = {
+        docker_status: [
+          'The worker container isn\'t running. Try:',
+          'docker start lightchain-worker',
+          'If it doesn\'t exist yet, re-run the docker run command from Step 10.',
+          'Then check: docker ps --filter name=lightchain-worker'
+        ],
+        worker_logs: [
+          'Could not read container logs. Make sure the container name is correct:',
+          'docker ps -a',
+          'Then: docker logs lightchain-worker --tail 30'
+        ],
+        redis: [
+          'Redis isn\'t running. Start and enable it:',
+          'sudo systemctl start redis\nsudo systemctl enable redis',
+          'Check status: sudo systemctl status redis'
+        ],
+        ollama: [
+          'Ollama isn\'t running or the llama3-8b alias is missing.',
+          'Start Ollama: ollama serve',
+          'Pull the model: ollama pull llama3:8b',
+          'Create the required alias: ollama cp llama3:8b llama3-8b',
+          'Verify: ollama list  (you should see llama3-8b in the list)'
+        ],
+        gpu: [
+          'nvidia-smi failed — GPU drivers may not be installed or loaded.',
+          'Check: nvidia-smi',
+          'If missing: sudo apt install nvidia-driver-535 (or your driver version)',
+          'After install, reboot: sudo reboot',
+          'Also verify: sudo apt install nvidia-container-toolkit'
+        ],
+        disk: [
+          'Low disk space can crash the worker or prevent model downloads.',
+          'See what\'s using space: du -sh /* 2>/dev/null | sort -rh | head -20',
+          'Docker often accumulates unused images: docker system prune -a',
+          'Target: keep at least 20GB free'
+        ],
+        vpn: [
+          'Mullvad VPN is not connected. The worker needs VPN for most ISPs.',
+          'Connect: mullvad connect',
+          'Check status: mullvad status',
+          'If not installed: see Step 3 for Mullvad setup instructions.',
+          'If already connected but still failing — try a different server location.'
+        ],
+        docker_stats: [
+          'Could not get container stats — container may not be running.',
+          'Check: docker ps --filter name=lightchain-worker',
+          'If stopped: docker start lightchain-worker',
+          'Watch logs: docker logs -f lightchain-worker'
+        ],
+        rpc: [
+          'Cannot reach the Lightchain RPC. This is usually a VPN or ISP issue.',
+          'First: make sure Mullvad is connected (mullvad connect)',
+          'If connected, try switching Mullvad server location.',
+          'Cox and some other ISPs block this endpoint without VPN.',
+          'Test manually: curl -sf https://rpc.mainnet.lightchain.ai'
+        ],
+        subgraph: [
+          'Subgraph API is unreachable. This may be a temporary Lightchain outage.',
+          'Check Lightchain status or community Discord for any announced downtime.',
+          'Test manually: curl -sf https://workers-api.mainnet.lightchain.ai/graphql',
+          'This check is informational — your node can still earn jobs if this fails.'
+        ],
+      };
+
+      list.innerHTML = '';
+      for (const [key, c] of Object.entries(d.checks)) {
+        const item = document.createElement('div');
+        const border = c.ok ? 'rgba(255,255,255,0.08)' : 'rgba(255,80,80,0.25)';
+        item.style.cssText = 'background:rgba(0,0,0,0.2);border:1px solid ' + border + ';border-radius:8px;padding:10px 14px';
+        const icon = c.ok ? '✅' : '❌';
+        let html = '<div style="font-weight:600;margin-bottom:4px">' + icon + ' ' + c.label + '</div>'
+          + '<div style="font-family:monospace;font-size:11px;color:var(--muted);white-space:pre-wrap;max-height:80px;overflow:auto">' + (c.output || '') + '</div>';
+        if (!c.ok && fixTips[key]) {
+          const tips = fixTips[key];
+          html += '<div style="margin-top:10px;padding:10px 12px;background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.2);border-radius:6px">'
+            + '<div style="font-size:11px;font-weight:700;color:#ff8080;margin-bottom:6px">💡 What to do:</div>'
+            + '<div style="font-size:12px;color:#ccc;margin-bottom:4px">' + tips[0] + '</div>';
+          for (let i = 1; i < tips.length; i++) {
+            if (tips[i].includes('\n') || tips[i].match(/^[a-z].*\s/)) {
+              html += '<div style="font-family:monospace;font-size:11px;background:rgba(0,0,0,0.35);border-radius:4px;padding:5px 8px;margin:4px 0;color:var(--cyan);white-space:pre">' + tips[i] + '</div>';
+            } else {
+              html += '<div style="font-size:12px;color:#aaa;margin-top:4px">' + tips[i] + '</div>';
+            }
+          }
+          html += '</div>';
+        }
+        item.innerHTML = html;
+        list.appendChild(item);
+      }
+      results.style.display = 'block';
+    } catch (e) {
+      badge.textContent = 'Server not running';
+      badge.style.color = 'var(--muted)';
+      summary.textContent = '⚠️ Could not reach the Node Builder server at localhost:8185.';
+      summary.style.color = '#ffaa00';
+      results.style.display = 'block';
+      list.innerHTML = '<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:14px 16px">'
+        + '<div style="font-weight:600;margin-bottom:8px;color:#ffaa00">To start the server, open a terminal and run:</div>'
+        + '<div style="font-family:monospace;font-size:13px;background:rgba(0,0,0,0.4);border-radius:6px;padding:10px 14px;color:var(--cyan);user-select:all">python3 ~/Desktop/orcanode/orcanode-server.py</div>'
+        + '<div style="margin-top:10px;font-size:12px;color:var(--muted)">Or if you installed it as a service: <code style="color:var(--cyan)">sudo systemctl start orcanode-server</code></div>'
+        + '<div style="margin-top:6px;font-size:12px;color:var(--muted)">Then reload this page at <a href="http://localhost:8185" style="color:var(--cyan)">http://localhost:8185</a> and click Run All Checks Now again.</div>'
+        + '</div>';
+    }
+
+    btn.textContent = '▶ Run All Checks Now';
+    btn.disabled = false;
+  }
+
+  const BACKEND_URL = 'http://localhost:8185';
+  let _aiActive = false;
+
+  // ── Network Stats + Reward Estimator ──────────────────────────────────
+  async function loadNetworkStats() {
+    try {
+      const resp = await fetch('https://workers-api.mainnet.lightchain.ai/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: '{ workers(first:1000) { id jobs_completed total_earned } }' })
+      });
+      const d = await resp.json();
+      const workers = d.data.workers;
+      const totalWorkers = workers.length;
+      const activeWorkers = workers.filter(w => parseInt(w.jobs_completed) > 0);
+      const totalJobs = workers.reduce((s, w) => s + parseInt(w.jobs_completed || 0), 0);
+      const totalEarned = workers.reduce((s, w) => s + parseInt(w.total_earned || 0), 0);
+      const totalEarnedLcai = (totalEarned / 1e18).toFixed(2);
+      const avgPerActive = activeWorkers.length > 0
+        ? ((totalEarned / 1e18) / activeWorkers.length).toFixed(2)
+        : '0';
+
+      document.getElementById('statWorkers').textContent = totalWorkers;
+      document.getElementById('statActive').textContent = activeWorkers.length;
+      document.getElementById('statJobs').textContent = totalJobs.toLocaleString();
+      document.getElementById('statEarned').textContent = parseFloat(totalEarnedLcai).toFixed(1);
+
+      // Reward estimator
+      document.getElementById('rewardAvg').innerHTML = avgPerActive + ' <span style="font-size:12px;color:var(--muted)">LCAI</span>';
+      document.getElementById('rewardJobs').innerHTML = totalJobs.toLocaleString() + ' <span style="font-size:12px;color:var(--muted)">jobs</span>';
+      document.getElementById('rewardEstimator').style.display = 'block';
+    } catch (e) {
+      // Silently fail — stats are a nice-to-have
+    }
+  }
+  loadNetworkStats();
+
+  // ── Hardware Checker ───────────────────────────────────────────────────
+  async function runHardwareCheck() {
+    const btn = document.getElementById('hwCheckBtn');
+    const results = document.getElementById('hwCheckResults');
+    const summary = document.getElementById('hwCheckSummary');
+    const list = document.getElementById('hwCheckList');
+
+    btn.textContent = '⏳ Checking...';
+    btn.disabled = true;
+    results.style.display = 'none';
+
+    try {
+      const r = await fetch(BACKEND_URL + '/api/hardware-check');
+      if (!r.ok) throw new Error('Server error');
+      const d = await r.json();
+
+      summary.textContent = d.summary;
+      summary.style.color = d.meets_minimum ? 'var(--green)' : '#ffaa00';
+
+      list.innerHTML = '';
+      for (const [key, c] of Object.entries(d.checks)) {
+        const item = document.createElement('div');
+        const border = c.ok ? 'rgba(0,255,100,0.2)' : 'rgba(255,80,80,0.25)';
+        item.style.cssText = 'background:rgba(0,0,0,0.2);border:1px solid ' + border + ';border-radius:8px;padding:10px 14px';
+        let html = '<div style="font-weight:600;margin-bottom:3px">' + (c.ok ? '✅' : '❌') + ' ' + c.label + '</div>'
+          + '<div style="font-size:12px;color:var(--muted)">' + (c.output || '') + '</div>';
+        if (!c.ok && c.tip) {
+          html += '<div style="margin-top:8px;font-size:12px;color:#ffaa00">💡 ' + c.tip + '</div>';
+        }
+        item.innerHTML = html;
+        list.appendChild(item);
+      }
+      results.style.display = 'block';
+    } catch (e) {
+      summary.textContent = '⚠️ Could not connect to Node Builder server. Start it first, then try again.';
+      summary.style.color = '#ffaa00';
+      results.style.display = 'block';
+      list.innerHTML = '';
+    }
+
+    btn.textContent = '⚡ Check My Hardware';
+    btn.disabled = false;
+  }
+
+  // Show a banner when loaded from GitHub Pages (not localhost) since AI chat
+  // and health checks require the local server and won't work over HTTPS.
+  (function() {
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isLocal) {
+      const banner = document.createElement('div');
+      banner.id = 'localBanner';
+      banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a2a1a;border-top:2px solid var(--green);color:#ccc;font-size:13px;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:9999';
+      banner.innerHTML = '<span>⚡ <strong>Node operators:</strong> For AI chat &amp; Live Health Check, open <a href="http://localhost:8185" style="color:var(--cyan);font-weight:700">http://localhost:8185</a> after starting the Node Builder server.</span><button onclick="document.getElementById(\'localBanner\').remove()" style="background:none;border:1px solid #555;color:#aaa;border-radius:4px;padding:3px 10px;cursor:pointer;flex-shrink:0">✕ Dismiss</button>';
+      document.body.appendChild(banner);
+    }
+  })();
+
+  function toggleChat() {
+    const panel = document.getElementById('aiPanel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      document.getElementById('aiInput').focus();
+      // Prevent background page from scrolling when panel is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Drag-to-move for the chat panel
+  (function() {
+    const panel = document.getElementById('aiPanel');
+    const header = panel.querySelector('.ai-panel-header');
+    let dragging = false, ox = 0, oy = 0;
+
+    header.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('ai-panel-close')) return;
+      dragging = true;
+      const rect = panel.getBoundingClientRect();
+      ox = e.clientX - rect.left;
+      oy = e.clientY - rect.top;
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.left = rect.left + 'px';
+      panel.style.top  = rect.top  + 'px';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      let left = e.clientX - ox;
+      let top  = e.clientY - oy;
+      left = Math.max(0, Math.min(left, window.innerWidth  - panel.offsetWidth));
+      top  = Math.max(0, Math.min(top,  window.innerHeight - panel.offsetHeight));
+      panel.style.left = left + 'px';
+      panel.style.top  = top  + 'px';
+    });
+
+    document.addEventListener('mouseup', () => { dragging = false; });
+  })();
+
+  // Upper-left resize handle
+  (function() {
+    const panel  = document.getElementById('aiPanel');
+    const handle = document.getElementById('aiResizeHandle');
+    let resizing = false, startX, startY, startW, startH, startLeft, startTop;
+
+    handle.addEventListener('mousedown', e => {
+      resizing = true;
+      const rect = panel.getBoundingClientRect();
+      startX    = e.clientX;
+      startY    = e.clientY;
+      startW    = rect.width;
+      startH    = rect.height;
+      startLeft = rect.left;
+      startTop  = rect.top;
+      // Switch from right/bottom anchoring to left/top
+      panel.style.right  = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.left   = startLeft + 'px';
+      panel.style.top    = startTop  + 'px';
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!resizing) return;
+      const dx = startX - e.clientX;  // moving left = positive dx = wider
+      const dy = startY - e.clientY;  // moving up   = positive dy = taller
+      const newW    = Math.max(300, startW + dx);
+      const newH    = Math.max(300, startH + dy);
+      const newLeft = startLeft + (startW - newW);
+      const newTop  = startTop  + (startH - newH);
+      panel.style.width  = newW + 'px';
+      panel.style.height = newH + 'px';
+      panel.style.left   = Math.max(0, newLeft) + 'px';
+      panel.style.top    = Math.max(0, newTop)  + 'px';
+    });
+
+    document.addEventListener('mouseup', () => { resizing = false; });
+  })();
+
+  function addBotMsg(text, isHtml) {
+    const messages = document.getElementById('aiMessages');
+    const el = document.createElement('div');
+    el.className = 'ai-msg bot';
+    if (isHtml) el.innerHTML = text;
+    else el.textContent = text;
+    messages.appendChild(el);
+    messages.scrollTop = messages.scrollHeight;
+    return el;
+  }
+
+  async function pollJob(jobId, loadingEl, maxWait) {
+    const deadline = Date.now() + maxWait;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const r = await fetch(BACKEND_URL + '/api/job?id=' + encodeURIComponent(jobId));
+        if (!r.ok) continue;
+        const d = await r.json();
+        if (d.status === 'done') return d.answer || '(no response)';
+        if (d.status === 'error') throw new Error(d.error || 'inference error');
+      } catch(e) {
+        if (e.message && e.message !== 'inference error') throw e;
+      }
+    }
+    throw new Error('Timed out waiting for answer');
+  }
+
+  async function _sendQuestion(question) {
+    if (_aiActive) return;
+    _aiActive = true;
+
+    const input = document.getElementById('aiInput');
+    const sendBtn = document.querySelector('.ai-send');
+    input.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+
+    const messages = document.getElementById('aiMessages');
+    const loadingEl = addBotMsg('⏳ Thinking... (this takes ~60-90 seconds via Lightchain AIVM)', false);
+
+    try {
+      const resp = await fetch(BACKEND_URL + '/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: question }),
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => ({}));
+        throw new Error(d.error || 'Server error ' + resp.status);
+      }
+      const d = await resp.json();
+      if (!d.jobId) throw new Error('No job ID from server');
+      loadingEl.textContent = '⏳ Job submitted (ID: ' + d.jobId + '). Waiting for Lightchain worker...';
+      const answer = await pollJob(d.jobId, loadingEl, 360000);
+      loadingEl.textContent = answer;
+    } catch (err) {
+      if (err.name === 'TypeError' || err.message.includes('fetch') || err.message.includes('connect')) {
+        loadingEl.innerHTML = '⚠️ Could not reach the Node Builder server.<br><br>'
+          + '<strong>Start it with:</strong><br>'
+          + '<code style="background:rgba(0,0,0,0.4);padding:4px 8px;border-radius:4px;color:var(--cyan)">python3 ~/Desktop/orcanode/orcanode-server.py</code><br><br>'
+          + 'Or if installed as a service:<br>'
+          + '<code style="background:rgba(0,0,0,0.4);padding:4px 8px;border-radius:4px;color:var(--cyan)">sudo systemctl start orcanode-server</code><br><br>'
+          + 'Then reload at <a href="http://localhost:8185" style="color:var(--cyan)">http://localhost:8185</a> and try again.';
+      } else {
+        loadingEl.textContent = '⚠️ Error: ' + err.message;
+      }
+    } finally {
+      _aiActive = false;
+      input.disabled = false;
+      if (sendBtn) sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function sendMsg() {
+    const input = document.getElementById('aiInput');
+    const msg = input.value.trim();
+    if (!msg || _aiActive) return;
+    const messages = document.getElementById('aiMessages');
+    const userEl = document.createElement('div');
+    userEl.className = 'ai-msg user';
+    userEl.textContent = msg;
+    messages.appendChild(userEl);
+    input.value = '';
+    messages.scrollTop = messages.scrollHeight;
+    await _sendQuestion(msg);
+  }
+</script>
+
+<div id="orca-terms-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#0d1b2a;border-radius:16px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(0,212,255,0.2);">
+    <div style="padding:18px 22px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-size:17px;font-weight:700;color:#e0eaf5;">📋 Terms &amp; Disclaimer</span>
+      <button onclick="document.getElementById('orca-terms-overlay').style.display='none'" style="background:#1a2e3f;border:none;color:#8fa8c0;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+    </div>
+    <div style="overflow-y:auto;padding:20px 22px;font-size:13px;color:#8fa8c0;line-height:1.75;display:flex;flex-direction:column;gap:14px;">
+      <p style="font-size:11px;color:#2a4a5f;">Last updated: May 2025 &nbsp;·&nbsp; OrcaNode — Lightchain Node Builder</p>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">1. What OrcaNode Is</div>
+      <p>OrcaNode is a free informational tool to help users set up and troubleshoot Lightchain worker nodes. It is operated by an individual developer and provided as-is. It is not an official Lightchain Foundation product.</p></div>
+      <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">2. For Informational Purposes Only</div>
+      <p>All setup guides, troubleshooting steps, hardware recommendations, and AI responses are for general informational purposes only. Instructions may become outdated as the Lightchain network evolves. Always verify steps against the official Lightchain documentation.</p></div>
+      <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">3. Staking &amp; Financial Risk</div>
+      <p>Running a Lightchain node requires staking LCAI tokens. Staked tokens may be subject to slashing penalties for node misbehavior or downtime, resulting in partial or complete loss of your stake. <strong style="color:#e0eaf5;">Nothing on OrcaNode constitutes financial or investment advice.</strong> Staking involves financial risk. You participate entirely at your own risk.</p></div>
+      <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">4. Hardware &amp; Software Risk</div>
+      <p>The operator is not responsible for any hardware damage, software conflicts, data loss, system downtime, or other issues arising from following setup instructions. Hardware compatibility and performance estimates are provided as general guidance only and may vary. You are solely responsible for your own hardware and system configuration.</p></div>
+      <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">5. No Warranty — Service Provided AS-IS</div>
+      <p>THIS SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND. THE OPERATOR DOES NOT WARRANT THAT SETUP INSTRUCTIONS ARE ACCURATE, COMPLETE, OR CURRENT. THE SERVICE MAY BE UNAVAILABLE OR DISCONTINUED AT ANY TIME WITHOUT NOTICE.</p></div>
+      <div style="height:1px;background:rgba(255,255,255,0.07);"></div>
+
+      <div><div style="font-size:13px;font-weight:700;color:#e0eaf5;margin-bottom:5px;">6. Limitation of Liability</div>
+      <p>TO THE FULLEST EXTENT PERMITTED BY LAW, THE OPERATOR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM YOUR USE OF THIS SERVICE, INCLUDING BUT NOT LIMITED TO STAKING LOSSES, HARDWARE DAMAGE, DATA LOSS, SLASHING PENALTIES, OR DECISIONS MADE BASED ON THIS TOOL'S GUIDANCE. YOUR USE OF ORCANODE IS ENTIRELY AT YOUR OWN RISK.</p></div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+      <button onclick="document.getElementById('orca-terms-overlay').style.display='none'" style="width:100%;padding:13px;background:#00d4ff;color:#0a0f1a;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
+<div style="text-align:center;padding:16px 0 24px;font-size:11px;">
+  <a href="#" onclick="document.getElementById('orca-terms-overlay').style.display='flex';return false;" style="color:#2a4a5f;text-decoration:none;">📋 Terms &amp; Disclaimer</a>
+</div>
+
+<!-- ── ORCA POD LINK ── -->
+<div style="text-align:center;padding:16px 20px;border-top:1px solid rgba(255,255,255,0.07);">
+  <a href="https://keiko-dev-lcai.github.io/orcapod/" target="_blank" style="color:#7ec8e3;font-size:13px;text-decoration:none;font-weight:600;letter-spacing:.02em;">🐬 Other Orca dApps →</a>
+</div>
+</body>
+</html>

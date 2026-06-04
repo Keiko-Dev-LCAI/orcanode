@@ -1,0 +1,17 @@
+[Unit]
+Description=Node Builder Wizard Backend (Lightchain AIVM)
+After=network.target
+
+[Service]
+Type=simple
+User=keiko
+WorkingDirectory=/home/keiko/Desktop/orcanode
+ExecStart=/usr/bin/python3 -u /home/keiko/Desktop/orcanode/orcanode-server.py
+Restart=always
+RestartSec=10
+Environment="LIGHTCHAIN_PRIVATE_KEY=[REDACTED-use-EnvironmentFile]"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
