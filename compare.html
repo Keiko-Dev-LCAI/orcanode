@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Compare — Lightchain Worker Diagnostics</title>
+<link rel="icon" href="orca-icon.png" type="image/png">
+<style>
+  :root {
+    --bg: #080c18;
+    --bg2: #0f1526;
+    --bg3: #1a2238;
+    --card: #131929;
+    --border: #1e2d4a;
+    --cyan: #00d4ff;
+    --green: #00e676;
+    --orange: #ff9800;
+    --red: #ff5252;
+    --text: #e8eaf0;
+    --muted: #7a8499;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 60px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--cyan);
+    text-decoration: none;
+  }
+  .logo img { height: 28px; width: auto; }
+  .logo span { color: var(--text); }
+  .header-right { margin-left: auto; font-size: 13px; }
+  .header-right a { color: var(--muted); text-decoration: none; }
+  .header-right a:hover { color: var(--cyan); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+  .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+  .card {
+    background: var(--card);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 20px;
+    background: rgba(0, 255, 136, 0.04);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .badge { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .hint { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 220px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  .btn-compare {
+    background: linear-gradient(135deg, #00ff88, #00d4ff);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 26px;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-compare:disabled { opacity: 0.6; cursor: wait; }
+  #compareResults { display: none; margin-top: 4px; }
+  #compareSummary { font-weight: 700; margin-bottom: 14px; font-size: 15px; }
+  #compareList { display: flex; flex-direction: column; gap: 10px; }
+  .setup-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .setup-card h2 { font-size: 14px; margin-bottom: 10px; color: var(--cyan); }
+  .code {
+    font-family: monospace;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--cyan);
+    word-break: break-all;
+  }
+  .setup-steps { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .setup-steps li { margin: 6px 0 6px 18px; }
+  .footer-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 32px; }
+  .footer-note a { color: var(--cyan); }
+  .host-banner {
+    display: none;
+    background: rgba(255, 152, 0, 0.1);
+    border: 1px solid rgba(255, 152, 0, 0.35);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    color: #ffcc80;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a class="logo" href="compare.html">
+    <img src="orca-icon.png" alt="" onerror="this.style.display='none'">
+    Node Compare
+  </a>
+  <div class="header-right">
+    <a href="index.html">Full setup wizard →</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Compare your node</h1>
+  <p class="subtitle">One button. Scans Docker, Ollama, VPN, config, logs, and on-chain status on <strong>this computer</strong>. Shows only what doesn't match a verified earning mainnet node — plus how to fix each item.</p>
+
+  <div id="hostBanner" class="host-banner"></div>
+
+  <div class="setup-card" id="setupCard">
+    <h2>Before you compare</h2>
+    <p class="hint" style="margin-bottom:10px">The compare tool reads your local machine. Start the OrcaNode server on the same computer as your worker:</p>
+    <div class="code">python3 ~/Desktop/orcanode/orcanode-server.py</div>
+    <ol class="setup-steps">
+      <li>Run the command above in a terminal (leave it open).</li>
+      <li>Open this page at <a href="http://localhost:8185/compare" style="color:var(--cyan)">http://localhost:8185/compare</a> — or stay here if you already did.</li>
+      <li>Click <strong>Compare Now</strong>.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>🎯 Compare with reference node</span>
+      <span id="compareBadge" class="badge">One button · differences only</span>
+    </div>
+    <p class="hint">Worker address is optional — we try to detect it from your logs automatically.</p>
+    <div class="row">
+      <input id="compareWorkerAddr" type="text" placeholder="Worker address (optional)" spellcheck="false">
+      <button id="compareBtn" class="btn-compare" onclick="runNodeCompare()">Compare Now</button>
+    </div>
+    <div id="compareResults">
+      <div id="compareSummary"></div>
+      <div id="compareList"></div>
+    </div>
+  </div>
+
+  <p class="footer-note">
+    Built by <a href="https://github.com/Keiko-Dev-LCAI/orcanode">KeikoDev</a> ·
+    <a href="index.html">Need full setup help?</a>
+  </p>
+</main>
+
+<script>
+  const BACKEND_URL = 'http://localhost:8185';
+
+  (function initHostBanner() {
+    const host = location.hostname;
+    const banner = document.getElementById('hostBanner');
+    const setup = document.getElementById('setupCard');
+    if (host === 'localhost' || host === '127.0.0.1') {
+      setup.style.display = 'none';
+      return;
+    }
+    banner.style.display = 'block';
+    banner.innerHTML = 'You opened the shared link — good. The scan still runs on <strong>your</strong> computer via '
+      + '<code style="color:var(--cyan)">localhost:8185</code>. Start the server below, then click Compare Now.';
+  })();
+
+  async function runNodeCompare() {
+    const btn = document.getElementById('compareBtn');
+    const results = document.getElementById('compareResults');
+    const summary = document.getElementById('compareSummary');
+    const list = document.getElementById('compareList');
+    const badge = document.getElementById('compareBadge');
+    const addrInput = document.getElementById('compareWorkerAddr');
+    const addr = (addrInput && addrInput.value || '').trim();
+
+    btn.textContent = '⏳ Scanning your node...';
+    btn.disabled = true;
+    results.style.display = 'none';
+
+    try {
+      const r = await fetch(BACKEND_URL + '/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker_address: addr || undefined }),
+      });
+      if (!r.ok) throw new Error('Server returned ' + r.status);
+      const d = await r.json();
+      if (!d.ok && d.error) throw new Error(d.error);
+
+      badge.textContent = d.reference_label || 'Reference node';
+
+      if (d.worker_address && addrInput && !addrInput.value) {
+        addrInput.value = d.worker_address;
+      }
+
+      const issues = d.issues || [];
+      if (issues.length === 0) {
+        summary.textContent = '✅ No differences found — your node matches the reference profile.';
+        summary.style.color = 'var(--green)';
+        list.innerHTML = '<div style="padding:14px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:8px;color:#aaf0c8;font-size:14px">Everything we could scan looks like the verified working setup. If you still have problems, check worker logs or open the full setup wizard.</div>';
+      } else {
+        const errors = issues.filter(i => i.severity === 'error').length;
+        const warns = issues.filter(i => i.severity === 'warning').length;
+        summary.textContent = '⚠️ ' + issues.length + ' difference(s) found'
+          + (errors ? ' · ' + errors + ' critical' : '')
+          + (warns ? ' · ' + warns + ' warning' : '');
+        summary.style.color = errors ? '#ff8080' : '#ffaa00';
+
+        list.innerHTML = '';
+        const sevIcon = { error: '🔴', warning: '🟡', info: '🔵' };
+        const sevColor = { error: 'rgba(255,80,80,0.2)', warning: 'rgba(255,170,0,0.15)', info: 'rgba(0,212,255,0.1)' };
+        for (const issue of issues) {
+          const item = document.createElement('div');
+          item.style.cssText = 'background:rgba(0,0,0,0.25);border:1px solid ' + (sevColor[issue.severity] || 'rgba(255,255,255,0.1)') + ';border-radius:10px;padding:14px 16px';
+          item.innerHTML = '<div style="font-weight:700;margin-bottom:6px;font-size:14px">'
+            + (sevIcon[issue.severity] || '•') + ' ' + issue.problem + '</div>'
+            + '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">' + issue.category + '</div>'
+            + '<div style="font-size:13px;font-weight:600;color:#7dffb8;margin-bottom:6px">Fix:</div>'
+            + '<div style="font-family:monospace;font-size:12px;color:var(--cyan);white-space:pre-wrap;line-height:1.6;background:rgba(0,0,0,0.3);border-radius:6px;padding:10px 12px">' + issue.fix + '</div>';
+          list.appendChild(item);
+        }
+      }
+      results.style.display = 'block';
+    } catch (e) {
+      badge.textContent = 'Server not running';
+      summary.textContent = '⚠️ Could not reach the compare server at localhost:8185.';
+      summary.style.color = '#ffaa00';
+      list.innerHTML = '<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:14px 16px">'
+        + '<div style="font-weight:600;margin-bottom:8px">Start the server on this machine:</div>'
+        + '<div class="code" style="margin-top:8px">python3 ~/Desktop/orcanode/orcanode-server.py</div>'
+        + '<div style="margin-top:10px;font-size:12px;color:var(--muted)">Then open <a href="http://localhost:8185/compare" style="color:var(--cyan)">http://localhost:8185/compare</a> and click Compare Now.</div></div>';
+      results.style.display = 'block';
+      document.getElementById('setupCard').style.display = 'block';
+    }
+
+    btn.textContent = 'Compare Now';
+    btn.disabled = false;
+  }
+
+  if (new URLSearchParams(location.search).get('auto') === '1') {
+    window.addEventListener('load', () => setTimeout(runNodeCompare, 400));
+  }
+</script>
+</body>
+</html>

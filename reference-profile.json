@@ -1,0 +1,57 @@
+{
+  "label": "Verified mainnet reference node (Jun 2026)",
+  "description": "Anonymous snapshot of a production worker earning jobs on Lightchain mainnet. No keys or passwords.",
+  "docker": {
+    "container_names": ["lightchain-worker", "lcai-worker"],
+    "network_mode": "host",
+    "restart_policy": "always",
+    "env": {
+      "CHAIN_ID": "9200",
+      "RPC_URL": "https://rpc.mainnet.lightchain.ai",
+      "WORKER_REGISTRY_ADDRESS": "0x0000000000000000000000000000000000001002",
+      "AI_CONFIG_ADDRESS": "0x24D11533C354092ed6E18b964257819cE78Ce77D",
+      "JOB_REGISTRY_ADDRESS": "0xfB15F90298e4CcD7106E76fFB5e520315cC42B0b",
+      "SUPPORTED_MODELS": "llama3-8b",
+      "BEACON_API_URL": "https://beacon.mainnet.lightchain.ai",
+      "BLOB_MODE": "beacon",
+      "WORKER_GATEWAY_URL": "https://worker-gateway.mainnet.lightchain.ai"
+    },
+    "env_required_keys": [
+      "WORKER_KEYSTORE_PATH",
+      "WORKER_KEYSTORE_PASSWORD",
+      "ENCRYPTION_KEYSTORE_PATH",
+      "SESSION_KEY_FILE",
+      "WORKER_GATEWAY_URL",
+      "BEACON_API_URL",
+      "BLOB_MODE",
+      "JOB_REGISTRY_ADDRESS"
+    ],
+    "env_forbidden_keys": ["MODELS_MAP", "PRIVATE_KEY"],
+    "ollama_url_patterns": ["127.0.0.1:11434", "localhost:11434", "host.docker.internal:11434"]
+  },
+  "ollama": {
+    "required_model_substrings": ["llama3-8b"]
+  },
+  "services": {
+    "redis_required": true,
+    "vpn_required": true,
+    "rpc_required": true,
+    "gateway_required": true
+  },
+  "log_patterns_required": [
+    "authenticated with worker-gateway",
+    "websocket connected to gateway"
+  ],
+  "log_patterns_healthy": [
+    "worker registration validated",
+    "worker service initialized",
+    "scheduler: batch release succeeded"
+  ],
+  "on_chain": {
+    "expected_status": "active",
+    "max_offense_count": 0,
+    "max_disputes_lost": 0,
+    "fresh_last_seen_hours": 6
+  },
+  "keystore_password_unsafe_chars": ["'", "\"", "$", "`", "\\", "!", "&", "|", ";", "<", ">", "(", ")", " "]
+}
