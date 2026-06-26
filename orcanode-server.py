@@ -643,6 +643,12 @@ def run_inference(question: str, timeout: int = 300) -> str:
 
 SERVER_START = time.time()
 
+# Node compare (reference profile diff)
+try:
+    from node_compare import compare_to_reference
+except ImportError:
+    compare_to_reference = None
+
 # In-flight job tracking
 _jobs      = {}
 _jobs_lock = threading.Lock()
@@ -681,24 +687,31 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    def _serve_html(self, filename):
+        html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+        try:
+            with open(html_path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except FileNotFoundError:
+            self._send_error(filename + " not found", 404)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path   = parsed.path.rstrip("/")
 
-        # Serve the wizard HTML from the local server so AI chat + health
-        # checks work (avoids HTTPS→HTTP mixed-content block from GitHub Pages)
+        # Serve HTML from the local server so AI chat + health checks work
+        # (avoids HTTPS→HTTP mixed-content block from GitHub Pages)
         if path == "" or path == "/":
-            html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
-            try:
-                with open(html_path, "rb") as f:
-                    body = f.read()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            except FileNotFoundError:
-                self._send_error("index.html not found", 404)
+            self._serve_html("index.html")
+            return
+
+        if path in ("/compare", "/compare.html"):
+            self._serve_html("compare.html")
             return
 
         if path == "/api/health":
@@ -732,6 +745,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/hardware-check":
             self._handle_hardware_check()
+            return
+
+        if path == "/api/compare":
+            self._handle_compare_get(parsed)
             return
 
         self._send_error("Not found", 404)
@@ -961,7 +978,34 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_ask()
             return
 
+        if path == "/api/compare":
+            self._handle_compare_post()
+            return
+
         self._send_error("Not found", 404)
+
+    def _handle_compare_get(self, parsed):
+        from urllib.parse import parse_qs
+        if not compare_to_reference:
+            self._send_error("Compare module not available", 500)
+            return
+        qs = parse_qs(parsed.query)
+        addr = (qs.get("worker_address") or [""])[0].strip()
+        try:
+            self._send_json(compare_to_reference(addr or None))
+        except Exception as e:
+            self._send_json({"ok": False, "error": str(e), "issues": []}, 500)
+
+    def _handle_compare_post(self):
+        if not compare_to_reference:
+            self._send_error("Compare module not available", 500)
+            return
+        body = self._read_body()
+        addr = (body.get("worker_address") or "").strip() or None
+        try:
+            self._send_json(compare_to_reference(addr))
+        except Exception as e:
+            self._send_json({"ok": False, "error": str(e), "issues": []}, 500)
 
     def _handle_ask(self):
         body     = self._read_body()
@@ -1023,6 +1067,7 @@ if __name__ == "__main__":
 
     server = HTTPServer(("0.0.0.0", PORT), Handler)
     print(f"  Ready: http://localhost:{PORT}")
+    print(f"  Compare: http://localhost:{PORT} → Health Checks → Compare with Reference Node")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

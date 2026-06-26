@@ -286,6 +286,18 @@
         <div style="font-size:11px;color:var(--muted);margin-top:10px">Live from Lightchain mainnet subgraph · earnings grow as network AI usage increases · early operators get a larger share of current volume</div>
       </div>
 
+      <div class="card" style="border-color:rgba(0,255,136,0.35);background:rgba(0,255,136,0.04);margin-bottom:20px">
+        <div class="card-title">🎯 Already running a node? Compare it in one click</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:14px;line-height:1.7">Scans <strong style="color:#fff">your machine</strong> against a verified working mainnet node. Shows <strong style="color:#fff">only problems and differences</strong> — each with a fix. No terminal copy-paste.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <button onclick="goToCompare()" style="background:linear-gradient(135deg,#00ff88,#00d4ff);color:#000;border:none;border-radius:8px;padding:12px 28px;font-weight:800;font-size:15px;cursor:pointer">
+            Compare with Reference Node →
+          </button>
+          <a href="compare.html" style="color:var(--cyan);font-size:13px;text-decoration:none;border:1px solid rgba(0,212,255,0.35);border-radius:8px;padding:10px 16px">Shareable compare link</a>
+        </div>
+        <div style="color:var(--muted);font-size:12px;margin-top:10px">Requires Node Builder server at <a href="http://localhost:8185" style="color:var(--cyan)">localhost:8185</a> · share <a href="compare.html" style="color:var(--cyan)">compare.html</a> without the full wizard</div>
+      </div>
+
       <div class="callout tip">
         <div class="callout-icon">💡</div>
         <div class="callout-body"><strong>What this wizard does</strong>Every command is copy-paste ready. Every common mistake is called out before you hit it. An AI assistant answers your questions in plain English. Built from real experience running a node on Lightchain mainnet.</div>
@@ -935,7 +947,30 @@ cast balance "$WORKER_ADDR" --rpc-url "$RPC_URL" \
       <div class="step-header">
         <div class="step-phase">Ongoing</div>
         <div class="step-title">Health Checks</div>
-        <div class="step-desc">Run all 10 checks at once with one click, or run them manually one by one below.</div>
+        <div class="step-desc">Compare your node to a known-good reference first — then run detailed checks below if needed.</div>
+      </div>
+
+      <!-- NODE COMPARE PANEL -->
+      <div class="card" style="border-color:rgba(0,255,136,0.4);background:rgba(0,255,136,0.05);margin-bottom:24px" id="nodeCompareCard">
+        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <span>🎯 Compare with Reference Node</span>
+          <span id="compareBadge" style="font-size:12px;color:var(--muted);font-weight:400">One button · differences only</span>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.7">We scan Docker, Ollama, VPN, config, logs, and on-chain status on <strong style="color:#fff">this computer</strong>. You only see what doesn't match a verified earning mainnet node — plus how to fix each item.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px">
+          <input id="compareWorkerAddr" type="text" placeholder="Worker address (optional — auto-detected from logs)" spellcheck="false"
+            style="flex:1;min-width:220px;background:rgba(0,0,0,0.35);border:1px solid rgba(0,212,255,0.25);border-radius:8px;padding:10px 14px;color:#fff;font-family:monospace;font-size:13px">
+          <button id="compareBtn" onclick="runNodeCompare()" style="background:linear-gradient(135deg,#00ff88,#00d4ff);color:#000;border:none;border-radius:8px;padding:12px 26px;font-weight:800;font-size:14px;cursor:pointer;white-space:nowrap">
+            Compare Now
+          </button>
+        </div>
+        <div id="compareResults" style="display:none">
+          <div id="compareSummary" style="font-weight:700;margin-bottom:14px;font-size:15px"></div>
+          <div id="compareList" style="display:flex;flex-direction:column;gap:10px"></div>
+          <button id="compareAskBtn" onclick="askWizardAboutCompare()" style="display:none;margin-top:14px;background:transparent;border:1px solid rgba(0,212,255,0.4);color:var(--cyan);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer">
+            Ask the Wizard to explain these fixes →
+          </button>
+        </div>
       </div>
 
       <!-- LIVE HEALTH CHECK PANEL -->
@@ -1518,6 +1553,10 @@ curl http://localhost:11434/api/tags | python3 -m json.tool</pre></div></div>
     const pct = (currentStep / totalSteps) * 100;
     document.getElementById('progress').style.width = pct + '%';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (n === 12 && sessionStorage.getItem('orcanode_auto_compare')) {
+      sessionStorage.removeItem('orcanode_auto_compare');
+      setTimeout(() => { if (typeof runNodeCompare === 'function') runNodeCompare(); }, 450);
+    }
   }
 
   function next() { if (currentStep < totalSteps) goTo(currentStep + 1); }
@@ -1786,6 +1825,98 @@ echo "======================================"
     _sendQuestion(question);
   }
 
+  let _lastCompareIssues = [];
+
+  function goToCompare() {
+    sessionStorage.setItem('orcanode_auto_compare', '1');
+    goTo(12);
+  }
+
+  async function runNodeCompare() {
+    const btn = document.getElementById('compareBtn');
+    const results = document.getElementById('compareResults');
+    const summary = document.getElementById('compareSummary');
+    const list = document.getElementById('compareList');
+    const badge = document.getElementById('compareBadge');
+    const askBtn = document.getElementById('compareAskBtn');
+    const addrInput = document.getElementById('compareWorkerAddr');
+    const addr = (addrInput && addrInput.value || '').trim();
+
+    btn.textContent = '⏳ Scanning your node...';
+    btn.disabled = true;
+    results.style.display = 'none';
+    if (askBtn) askBtn.style.display = 'none';
+
+    try {
+      const r = await fetch(BACKEND_URL + '/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker_address: addr || undefined }),
+      });
+      if (!r.ok) throw new Error('Server returned ' + r.status);
+      const d = await r.json();
+      if (!d.ok && d.error) throw new Error(d.error);
+
+      _lastCompareIssues = d.issues || [];
+      badge.textContent = d.reference_label || 'Reference node';
+
+      if (d.worker_address && addrInput && !addrInput.value) {
+        addrInput.value = d.worker_address;
+      }
+
+      if (_lastCompareIssues.length === 0) {
+        summary.textContent = '✅ No differences found — your node matches the reference profile.';
+        summary.style.color = 'var(--green)';
+        list.innerHTML = '<div style="padding:14px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:8px;color:#aaf0c8;font-size:14px">Everything we could scan looks like the verified working setup. If you still have problems, run Live Health Check below or paste logs to Ask the Wizard.</div>';
+      } else {
+        const errors = _lastCompareIssues.filter(i => i.severity === 'error').length;
+        const warns = _lastCompareIssues.filter(i => i.severity === 'warning').length;
+        summary.textContent = '⚠️ ' + _lastCompareIssues.length + ' difference(s) found'
+          + (errors ? ' · ' + errors + ' critical' : '')
+          + (warns ? ' · ' + warns + ' warning' : '');
+        summary.style.color = errors ? '#ff8080' : '#ffaa00';
+
+        list.innerHTML = '';
+        const sevIcon = { error: '🔴', warning: '🟡', info: '🔵' };
+        const sevColor = { error: 'rgba(255,80,80,0.2)', warning: 'rgba(255,170,0,0.15)', info: 'rgba(0,212,255,0.1)' };
+        for (const issue of _lastCompareIssues) {
+          const item = document.createElement('div');
+          item.style.cssText = 'background:rgba(0,0,0,0.25);border:1px solid ' + (sevColor[issue.severity] || 'rgba(255,255,255,0.1)') + ';border-radius:10px;padding:14px 16px';
+          item.innerHTML = '<div style="font-weight:700;margin-bottom:6px;font-size:14px">'
+            + (sevIcon[issue.severity] || '•') + ' ' + issue.problem + '</div>'
+            + '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">' + issue.category + '</div>'
+            + '<div style="font-size:13px;font-weight:600;color:#7dffb8;margin-bottom:6px">Fix:</div>'
+            + '<div style="font-family:monospace;font-size:12px;color:var(--cyan);white-space:pre-wrap;line-height:1.6;background:rgba(0,0,0,0.3);border-radius:6px;padding:10px 12px">' + issue.fix + '</div>';
+          list.appendChild(item);
+        }
+        if (askBtn) askBtn.style.display = 'inline-block';
+      }
+      results.style.display = 'block';
+    } catch (e) {
+      badge.textContent = 'Server not running';
+      summary.textContent = '⚠️ Could not reach Node Builder at localhost:8185.';
+      summary.style.color = '#ffaa00';
+      list.innerHTML = '<div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:14px 16px">'
+        + '<div style="font-weight:600;margin-bottom:8px">Start the server:</div>'
+        + '<div style="font-family:monospace;font-size:13px;background:rgba(0,0,0,0.4);border-radius:6px;padding:10px 14px;color:var(--cyan)">python3 ~/Desktop/orcanode/orcanode-server.py</div>'
+        + '<div style="margin-top:10px;font-size:12px;color:var(--muted)">Then open <a href="http://localhost:8185" style="color:var(--cyan)">http://localhost:8185</a> and click Compare Now.</div></div>';
+      results.style.display = 'block';
+    }
+
+    btn.textContent = 'Compare Now';
+    btn.disabled = false;
+  }
+
+  function askWizardAboutCompare() {
+    if (!_lastCompareIssues.length) return;
+    const lines = _lastCompareIssues.map((i, n) => (n + 1) + '. [' + i.severity + '] ' + i.problem + '\n   Fix: ' + i.fix.replace(/\n/g, ' '));
+    const q = 'My node compare found these differences vs the reference node. Explain in plain English what matters most and what order to fix them:\n\n' + lines.join('\n\n');
+    const panel = document.getElementById('aiPanel');
+    panel.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    _sendQuestion(q);
+  }
+
   // ── Live Health Check ──────────────────────────────────────────────
   async function runLiveCheck() {
     const btn = document.getElementById('liveCheckBtn');
@@ -2010,7 +2141,7 @@ echo "======================================"
       const banner = document.createElement('div');
       banner.id = 'localBanner';
       banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a2a1a;border-top:2px solid var(--green);color:#ccc;font-size:13px;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:9999';
-      banner.innerHTML = '<span>⚡ <strong>Node operators:</strong> For AI chat &amp; Live Health Check, open <a href="http://localhost:8185" style="color:var(--cyan);font-weight:700">http://localhost:8185</a> after starting the Node Builder server.</span><button onclick="document.getElementById(\'localBanner\').remove()" style="background:none;border:1px solid #555;color:#aaa;border-radius:4px;padding:3px 10px;cursor:pointer;flex-shrink:0">✕ Dismiss</button>';
+      banner.innerHTML = '<span>⚡ <strong>Node operators:</strong> For <strong>Compare with Reference Node</strong>, AI chat &amp; Live Health Check, open <a href="http://localhost:8185" style="color:var(--cyan);font-weight:700">http://localhost:8185</a> after starting the Node Builder server.</span><button onclick="document.getElementById(\'localBanner\').remove()" style="background:none;border:1px solid #555;color:#aaa;border-radius:4px;padding:3px 10px;cursor:pointer;flex-shrink:0">✕ Dismiss</button>';
       document.body.appendChild(banner);
     }
   })();
