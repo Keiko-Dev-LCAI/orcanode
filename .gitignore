@@ -1,0 +1,6 @@
+.env
+.env.*
+*.pem
+__pycache__/
+*.pyc
+.dapp-wallet.env

@@ -9,7 +9,8 @@ WorkingDirectory=/home/keiko/Desktop/orcanode
 ExecStart=/usr/bin/python3 -u /home/keiko/Desktop/orcanode/orcanode-server.py
 Restart=always
 RestartSec=10
-Environment="LIGHTCHAIN_PRIVATE_KEY=[REDACTED-use-EnvironmentFile]"
+# NEVER commit the real key — set in /etc/systemd/system/ override or EnvironmentFile
+# EnvironmentFile=-/etc/orcanode/dapp-wallet.env
 StandardOutput=journal
 StandardError=journal
 
