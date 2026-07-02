@@ -195,7 +195,11 @@
     .tips-row { grid-template-columns: 1fr; }
     .ai-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; resize: none; }
   }
-</style>
+  .keiko-android-install { text-align:center; padding:12px 16px 14px; border-top:1px solid rgba(255,255,255,0.08); background:rgba(0,0,0,0.25); }
+  .keiko-android-install a { display:inline-block; background:#00d4ff; color:#000; font-weight:800; font-size:15px; padding:10px 18px; border-radius:10px; text-decoration:none; }
+  .keiko-android-install a:hover { opacity:0.9; }
+  .keiko-android-install p { margin-top:6px; font-size:12px; opacity:0.65; }
+  </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#22c55e">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -2387,5 +2391,9 @@ echo "======================================"
 <!-- dev contact footer -->
 <div style="text-align:center;padding:8px 16px 16px;font-size:13px;opacity:0.5;">Questions or ideas? <a href="#" onclick="(function(){navigator.clipboard.writeText('0xA3a653a8cBA0710ff57Ac34E2278C603B4259FD3').catch(function(){});window.open('https://orcamail.ai','_blank');var t=document.getElementById('_dctoast');if(t){t.style.display='block';setTimeout(function(){t.style.display='none'},3000);}})();return false;" style="color:#6c47ff;font-weight:600;text-decoration:none;">Contact Developer via OrcaMail &#x1F42C;</a></div>
 <div id="_dctoast" style="display:none;position:fixed;bottom:24px;right:24px;background:#6c47ff;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 2px 16px rgba(0,0,0,.4);">Wallet copied! Opening OrcaMail&#x2026;</div>
+<div class="keiko-android-install">
+  <a href="OrcaNode.apk" download>📲 Download Android App</a>
+  <p>Download → open file → Install. Allow unknown apps if asked.</p>
+</div>
 </body>
 </html>
