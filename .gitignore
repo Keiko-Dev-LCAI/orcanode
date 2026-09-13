@@ -4,3 +4,4 @@
 __pycache__/
 *.pyc
 .dapp-wallet.env
+.grok/
