@@ -800,6 +800,20 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_compare_get(parsed)
             return
 
+        if path.startswith("/getlcai/") and path.endswith(".js"):
+            js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "getlcai", os.path.basename(path))
+            try:
+                with open(js_path, "rb") as f:
+                    body = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except FileNotFoundError:
+                self._send_error("Not found", 404)
+            return
+
         self._send_error("Not found", 404)
 
     def _handle_hardware_check(self):
